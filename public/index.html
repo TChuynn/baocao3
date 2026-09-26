@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Management System with AI</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="authModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Đăng nhập hệ thống</h3>
+        <button type="button" class="icon-btn" data-close="authModal">×</button>
+      </div>
+      <form id="loginForm" class="stack-form">
+        <input type="text" name="tenDangNhap" placeholder="Tên đăng nhập" required />
+        <input type="password" name="matKhau" placeholder="Mật khẩu" required />
+        <button type="submit" class="primary">Đăng nhập</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="eventModal" class="modal hidden">
+    <div class="modal-content wide">
+      <div class="modal-header">
+        <h3>Tạo sự kiện mới</h3>
+        <button type="button" class="icon-btn" data-close="eventModal">×</button>
+      </div>
+      <form id="eventForm" class="stack-form">
+        <input type="hidden" name="eventId" />
+        <div class="form-row two-col">
+          <input type="text" name="maSuKien" placeholder="Mã sự kiện" required />
+          <input type="text" name="tenSuKien" placeholder="Tên sự kiện" required />
+        </div>
+        <textarea name="moTa" rows="3" placeholder="Mô tả sự kiện" required></textarea>
+        <div class="form-row two-col">
+          <input type="text" name="loaiSuKien" placeholder="Loại sự kiện" required />
+          <input type="text" name="diaDiem" placeholder="Địa điểm" required />
+        </div>
+        <div class="form-row two-col">
+          <input type="datetime-local" name="ngayBatDau" required />
+          <input type="datetime-local" name="ngayKetThuc" required />
+        </div>
+        <div class="form-row two-col">
+          <select name="trangThai">
+            <option value="SapDienRa">Sắp diễn ra</option>
+            <option value="DangDienRa">Đang diễn ra</option>
+            <option value="DaKetThuc">Đã kết thúc</option>
+          </select>
+          <input type="url" name="bannerUrl" placeholder="Banner URL" />
+        </div>
+        <button type="submit" class="primary" id="eventSubmitBtn">Lưu sự kiện</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">AI EventHub</div>
+      <nav>
+        <button class="nav-item active" data-section="dashboard">Dashboard</button>
+        <button class="nav-item" data-section="accounts">Tài khoản</button>
+        <button class="nav-item" data-section="events">Sự kiện</button>
+        <button class="nav-item" data-section="tickets">Vé & Đăng ký</button>
+        <button class="nav-item" data-section="checkin">Check-in</button>
+        <button class="nav-item" data-section="ai">AI Studio</button>
+        <button class="nav-item" data-section="reports">Báo cáo</button>
+      </nav>
+      <div class="user-panel">
+        <span id="currentUser">Khách</span>
+        <button id="loginBtn" class="secondary">Đăng nhập</button>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section id="dashboard" class="screen active">
+        <div class="header-row">
+          <h1>Dashboard</h1>
+          <button class="primary" id="createEventBtn">+ Tạo sự kiện</button>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card"><span>Tổng sự kiện</span><strong id="statEvents">0</strong></div>
+          <div class="stat-card"><span>Người tham dự</span><strong id="statGuests">0</strong></div>
+          <div class="stat-card"><span>Doanh thu</span><strong id="statRevenue">0</strong></div>
+          <div class="stat-card"><span>AI đánh giá</span><strong id="statAi">92%</strong></div>
+        </div>
+
+        <div class="panel-grid two-col">
+          <div class="panel">
+            <h3>Sự kiện sắp tới</h3>
+            <ul id="upcomingEvents" class="list"></ul>
+          </div>
+          <div class="panel">
+            <h3>AI Summary</h3>
+            <div id="aiSummary" class="ai-box"></div>
+          </div>
+        </div>
+
+        <div class="panel-grid two-col" style="margin-top: 20px;">
+          <div class="panel">
+            <h3>Quản lý phiên nội dung</h3>
+            <form id="sessionForm" class="stack-form">
+              <input type="text" name="maPhien" placeholder="Mã phiên" required />
+              <input type="text" name="tenPhien" placeholder="Tên phiên" required />
+              <input type="datetime-local" name="ngayGio" required />
+              <input type="text" name="phong" placeholder="Phòng" />
+              <button type="submit" class="primary">Thêm phiên</button>
+            </form>
+          </div>
+          <div class="panel">
+            <h3>Quản lý diễn giả</h3>
+            <form id="speakerForm" class="stack-form">
+              <input type="text" name="maDienGia" placeholder="Mã diễn giả" required />
+              <input type="text" name="tenDienGia" placeholder="Tên diễn giả" required />
+              <input type="text" name="chuyenNganh" placeholder="Chuyên ngành" />
+              <button type="submit" class="primary">Thêm diễn giả</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section id="accounts" class="screen">
+        <div class="header-row">
+          <h1>Quản lý tài khoản</h1>
+        </div>
+        <div class="panel-grid two-col">
+          <div class="panel">
+            <h3>Tạo tài khoản mới</h3>
+            <form id="accountForm" class="stack-form">
+              <input type="text" name="tenDangNhap" placeholder="Tên đăng nhập" required />
+              <input type="email" name="email" placeholder="Email" required />
+              <input type="password" name="matKhau" placeholder="Mật khẩu" required />
+              <input type="text" name="hoTen" placeholder="Họ tên" required />
+              <select name="vaiTro">
+                <option value="QuanTriVien">Quản trị viên</option>
+                <option value="BanToChuc">Ban tổ chức</option>
+                <option value="NhanVienCheckIn">Nhân viên check-in</option>
+                <option value="NguoiThamDu">Người tham dự</option>
+              </select>
+              <button type="submit" class="primary">Tạo tài khoản</button>
+            </form>
+          </div>
+          <div class="panel">
+            <h3>Danh sách tài khoản</h3>
+            <div id="accountList" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="events" class="screen">
+        <div class="header-row">
+          <h1>Quản lý sự kiện</h1>
+        </div>
+        <div id="eventList" class="card-list"></div>
+      </section>
+
+      <section id="tickets" class="screen">
+        <div class="header-row">
+          <h1>Vé & Đăng ký</h1>
+        </div>
+        <div class="form-card">
+          <h3>Đăng ký sự kiện</h3>
+          <form id="registrationForm">
+            <input type="text" name="fullName" placeholder="Họ tên" required />
+            <input type="email" name="email" placeholder="Email" required />
+            <input type="tel" name="phone" placeholder="Số điện thoại" />
+            <select name="eventId">
+              <option value="1">AI Summit 2025</option>
+            </select>
+            <select name="ticketType">
+              <option value="VIP">VIP</option>
+              <option value="Professional">Professional</option>
+            </select>
+            <button class="primary" type="submit">Đăng ký</button>
+          </form>
+        </div>
+
+        <div class="form-card" style="margin-top: 20px;">
+          <h3>Vé đã đặt & QR check-in</h3>
+          <div id="registeredTicketsList" class="card-list"></div>
+        </div>
+
+        <div class="form-card" style="margin-top: 20px;">
+          <h3>Quản lý hạng vé</h3>
+          <form id="ticketForm" class="stack-form">
+            <input type="text" name="maHangVe" placeholder="Mã hạng vé" required />
+            <input type="text" name="tenHangVe" placeholder="Tên hạng vé" required />
+            <div class="form-row two-col">
+              <input type="number" name="gia" placeholder="Giá vé" required />
+              <input type="number" name="soLuong" placeholder="Số lượng" required />
+            </div>
+            <select name="suKienId">
+              <option value="1">AI Summit 2025</option>
+            </select>
+            <button class="primary" type="submit">Thêm hạng vé</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="checkin" class="screen">
+        <div class="header-row">
+          <h1>Check-in</h1>
+        </div>
+        <div class="form-card">
+          <h3>Quét mã / nhập mã vé</h3>
+          <input id="checkinCode" type="text" placeholder="Nhập mã QR hoặc mã vé" />
+          <button class="primary" id="checkInBtn">Check-in</button>
+          <div id="checkinResult" class="result-box"></div>
+        </div>
+      </section>
+
+      <section id="ai" class="screen">
+        <div class="header-row">
+          <h1>AI Studio</h1>
+        </div>
+        <div class="panel-grid two-col">
+          <div class="panel">
+            <h3>AI Sinh thông báo</h3>
+            <textarea id="notificationInput" rows="5" placeholder="Nhập nội dung chính...">Chúng tôi rất mong được gặp bạn tại sự kiện sắp diễn ra.</textarea>
+            <button class="primary" id="generateNotificationBtn">Tạo thông báo</button>
+            <div id="notificationOutput" class="result-box"></div>
+          </div>
+          <div class="panel">
+            <h3>AI Chatbot</h3>
+            <input id="chatQuestion" type="text" placeholder="Hỏi về sự kiện, lịch trình, FAQ..." />
+            <button class="primary" id="chatBtn">Gửi câu hỏi</button>
+            <div id="chatOutput" class="result-box"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="reports" class="screen">
+        <div class="header-row">
+          <h1>Báo cáo doanh thu</h1>
+        </div>
+        <div class="panel-grid two-col">
+          <div class="panel">
+            <h3>Tổng quan</h3>
+            <div id="reportSummary" class="result-box"></div>
+          </div>
+          <div class="panel">
+            <h3>Chi tiết doanh thu theo sự kiện</h3>
+            <div id="reportList" class="list"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="chatWidget" class="chat-widget">
+    <div class="chat-header" id="chatDragHandle">
+      <span>AI Chatbot</span>
+      <div class="chat-controls">
+        <button class="mini-btn" id="chatMinimizeBtn" type="button">−</button>
+        <button class="mini-btn" id="chatExpandBtn" type="button">□</button>
+      </div>
+    </div>
+    <div id="chatMessages" class="chat-messages">
+      <div class="msg bot">Xin chào! Tôi có thể hỗ trợ bạn về sự kiện, lịch trình và FAQ.</div>
+    </div>
+    <div class="chat-input-row">
+      <input id="chatWidgetInput" type="text" placeholder="Nhập câu hỏi..." />
+      <button id="chatWidgetBtn">Gửi</button>
+    </div>
+    <div class="resize-handle" id="chatResizeHandle" aria-label="Resize chatbot"></div>
+  </div>
+
+  <script src="/script.js"></script>
+</body>
+</html>
