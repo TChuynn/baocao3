@@ -76,6 +76,9 @@ body {
   display: none;
 }
 .screen.active { display: block; }
+.hidden {
+  display: none !important;
+}
 .header-row {
   display: flex;
   justify-content: space-between;

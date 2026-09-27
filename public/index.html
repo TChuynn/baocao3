@@ -59,13 +59,13 @@
     <aside class="sidebar">
       <div class="brand">AI EventHub</div>
       <nav>
-        <button class="nav-item active" data-section="dashboard">Dashboard</button>
-        <button class="nav-item" data-section="accounts">Tài khoản</button>
-        <button class="nav-item" data-section="events">Sự kiện</button>
-        <button class="nav-item" data-section="tickets">Vé & Đăng ký</button>
-        <button class="nav-item" data-section="checkin">Check-in</button>
-        <button class="nav-item" data-section="ai">AI Studio</button>
-        <button class="nav-item" data-section="reports">Báo cáo</button>
+        <button class="nav-item active" data-section="dashboard" data-role="QuanTriVien,BanToChuc,NhanVienCheckIn,NguoiThamDu">Dashboard</button>
+        <button class="nav-item" data-section="accounts" data-role="QuanTriVien">Tài khoản</button>
+        <button class="nav-item" data-section="events" data-role="BanToChuc">Sự kiện</button>
+        <button class="nav-item" data-section="tickets" data-role="QuanTriVien,BanToChuc,NhanVienCheckIn,NguoiThamDu">Vé & Đăng ký</button>
+        <button class="nav-item" data-section="checkin" data-role="QuanTriVien,BanToChuc,NhanVienCheckIn">Check-in</button>
+        <button class="nav-item" data-section="ai" data-role="QuanTriVien,BanToChuc,NguoiThamDu">AI Studio</button>
+        <button class="nav-item" data-section="reports" data-role="QuanTriVien,BanToChuc">Báo cáo</button>
       </nav>
       <div class="user-panel">
         <span id="currentUser">Khách</span>
@@ -74,7 +74,7 @@
     </aside>
 
     <main class="content">
-      <section id="dashboard" class="screen active">
+      <section id="dashboard" class="screen active" data-role="QuanTriVien,BanToChuc,NhanVienCheckIn,NguoiThamDu">
         <div class="header-row">
           <h1>Dashboard</h1>
           <button class="primary" id="createEventBtn">+ Tạo sự kiện</button>
@@ -121,7 +121,7 @@
         </div>
       </section>
 
-      <section id="accounts" class="screen">
+      <section id="accounts" class="screen" data-role="QuanTriVien">
         <div class="header-row">
           <h1>Quản lý tài khoản</h1>
         </div>
@@ -149,14 +149,14 @@
         </div>
       </section>
 
-      <section id="events" class="screen">
+      <section id="events" class="screen" data-role="BanToChuc">
         <div class="header-row">
           <h1>Quản lý sự kiện</h1>
         </div>
         <div id="eventList" class="card-list"></div>
       </section>
 
-      <section id="tickets" class="screen">
+      <section id="tickets" class="screen" data-role="QuanTriVien,BanToChuc,NhanVienCheckIn,NguoiThamDu">
         <div class="header-row">
           <h1>Vé & Đăng ký</h1>
         </div>
@@ -199,7 +199,7 @@
         </div>
       </section>
 
-      <section id="checkin" class="screen">
+      <section id="checkin" class="screen" data-role="QuanTriVien,BanToChuc,NhanVienCheckIn">
         <div class="header-row">
           <h1>Check-in</h1>
         </div>
@@ -211,7 +211,7 @@
         </div>
       </section>
 
-      <section id="ai" class="screen">
+      <section id="ai" class="screen" data-role="QuanTriVien,BanToChuc,NguoiThamDu">
         <div class="header-row">
           <h1>AI Studio</h1>
         </div>
@@ -231,7 +231,7 @@
         </div>
       </section>
 
-      <section id="reports" class="screen">
+      <section id="reports" class="screen" data-role="QuanTriVien,BanToChuc">
         <div class="header-row">
           <h1>Báo cáo doanh thu</h1>
         </div>

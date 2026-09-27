@@ -57,9 +57,70 @@ const state = {
   chatResize: false
 };
 
+function getCurrentUser() {
+  return state.currentUser || JSON.parse(localStorage.getItem('event_user') || 'null');
+}
+
+function hasRole(user, roles = []) {
+  if (!user || !user.vaiTro) return false;
+  return roles.includes(user.vaiTro);
+}
+
+function syncRoleVisibility() {
+  const user = getCurrentUser();
+  const role = user?.vaiTro || null;
+  const allowedSections = [];
+
+  document.querySelectorAll('.nav-item').forEach(item => {
+    const roles = item.dataset.role ? item.dataset.role.split(',') : [];
+    const visible = !!role && roles.includes(role);
+    item.style.display = visible ? '' : 'none';
+    if (visible) allowedSections.push(item.dataset.section);
+  });
+
+  if (!role) {
+    document.querySelectorAll('.screen').forEach(screen => {
+      screen.style.display = 'none';
+      screen.classList.remove('active');
+    });
+    return;
+  }
+
+  document.querySelectorAll('.screen').forEach(screen => {
+    const roles = screen.dataset.role ? screen.dataset.role.split(',') : [];
+    const visible = roles.includes(role);
+    screen.style.display = visible ? 'block' : 'none';
+    screen.classList.toggle('active', visible && screen.id === allowedSections[0]);
+  });
+
+  const mainSection = allowedSections[0] || 'dashboard';
+  setActiveSection(mainSection);
+
+  const createEventBtn = document.getElementById('createEventBtn');
+  if (createEventBtn) {
+    const canCreateEvent = hasRole(user, ['BanToChuc']);
+    createEventBtn.style.display = canCreateEvent ? '' : 'none';
+  }
+
+  document.querySelectorAll('.panel').forEach(panel => {
+    const sessionPanel = panel.querySelector('#sessionForm');
+    const speakerPanel = panel.querySelector('#speakerForm');
+    const canManageProgram = hasRole(user, ['BanToChuc']);
+    if (sessionPanel || speakerPanel) {
+      panel.style.display = canManageProgram ? '' : 'none';
+    }
+  });
+}
+
 function setActiveSection(section) {
-  document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.section === section));
-  document.querySelectorAll('.screen').forEach(screen => screen.classList.toggle('active', screen.id === section));
+  document.querySelectorAll('.nav-item').forEach(item => {
+    const isVisible = item.style.display !== 'none';
+    item.classList.toggle('active', isVisible && item.dataset.section === section);
+  });
+  document.querySelectorAll('.screen').forEach(screen => {
+    const isVisible = screen.style.display !== 'none';
+    screen.classList.toggle('active', isVisible && screen.id === section);
+  });
 }
 
 function openModal(id) {
@@ -85,7 +146,7 @@ function clearSession() {
 }
 
 function updateUserState() {
-  const user = state.currentUser || JSON.parse(localStorage.getItem('event_user') || 'null');
+  const user = getCurrentUser();
   if (user) {
     document.getElementById('currentUser').textContent = user.hoTen || user.tenDangNhap;
     document.getElementById('loginBtn').textContent = 'Đăng xuất';
@@ -93,6 +154,8 @@ function updateUserState() {
     document.getElementById('currentUser').textContent = 'Khách';
     document.getElementById('loginBtn').textContent = 'Đăng nhập';
   }
+
+  syncRoleVisibility();
 }
 
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -104,10 +167,9 @@ document.querySelectorAll('[data-close]').forEach(btn => {
 });
 
 document.getElementById('createEventBtn').addEventListener('click', () => {
-  const user = state.currentUser || JSON.parse(localStorage.getItem('event_user') || 'null');
-  if (!user || !['QuanTriVien', 'BanToChuc'].includes(user.vaiTro)) {
-    alert('Chỉ Admin hoặc Ban tổ chức mới được tạo sự kiện.');
-    openModal('authModal');
+  const user = getCurrentUser();
+  if (!user || !['BanToChuc'].includes(user.vaiTro)) {
+    alert('Chỉ Ban tổ chức mới được tạo sự kiện.');
     return;
   }
   openModal('eventModal');
@@ -143,7 +205,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
 document.getElementById('accountForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const user = state.currentUser || JSON.parse(localStorage.getItem('event_user') || 'null');
+  const user = getCurrentUser();
   if (!user || user.vaiTro !== 'QuanTriVien') {
     alert('Chỉ quản trị viên mới có quyền tạo và phân quyền tài khoản.');
     return;
@@ -170,9 +232,9 @@ document.getElementById('accountForm').addEventListener('submit', async (e) => {
 
 document.getElementById('eventForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const user = state.currentUser || JSON.parse(localStorage.getItem('event_user') || 'null');
-  if (!user || !['QuanTriVien', 'BanToChuc'].includes(user.vaiTro)) {
-    alert('Bạn không có quyền tạo sự kiện');
+  const user = getCurrentUser();
+  if (!user || !['BanToChuc'].includes(user.vaiTro)) {
+    alert('Bạn không có quyền tạo hoặc cập nhật sự kiện.');
     return;
   }
 
@@ -333,7 +395,7 @@ async function loadRegisteredTickets() {
 }
 
 async function loadAccounts() {
-  const user = state.currentUser || JSON.parse(localStorage.getItem('event_user') || 'null');
+  const user = getCurrentUser();
   if (!user || user.vaiTro !== 'QuanTriVien') {
     document.getElementById('accountList').innerHTML = '<p>Chỉ quản trị viên mới xem và phân quyền tài khoản.</p>';
     return;
