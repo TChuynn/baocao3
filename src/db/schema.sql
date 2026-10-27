@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS TaiKhoan (
     tenDangNhap TEXT UNIQUE NOT NULL,
     email TEXT UNIQUE NOT NULL,
     matKhauHash TEXT NOT NULL,
-    vaiTro TEXT NOT NULL CHECK(vaiTro IN ('QuanTriVien', 'BanToChuc', 'NhanVienCheckIn', 'NguoiThamDu')),
+    vaiTro TEXT NOT NULL CHECK(vaiTro IN ('QuanTriVien', 'BanToChuc', 'NhanVienCheckIn', 'NguoiThamDu', 'KeToan')),
     hoTen TEXT NOT NULL,
     trangThai TEXT NOT NULL DEFAULT 'HoatDong' CHECK(trangThai IN ('HoatDong', 'Khoa', 'ChoXacNhan')),
     createdAt TEXT NOT NULL DEFAULT (datetime('now'))
@@ -86,8 +86,9 @@ CREATE TABLE IF NOT EXISTS DangKy (
     hangVeId INTEGER NOT NULL,
     soLuong INTEGER NOT NULL DEFAULT 1 CHECK(soLuong > 0),
     tongTien REAL NOT NULL CHECK(tongTien >= 0),
-    trangThai TEXT NOT NULL DEFAULT 'DaXacNhan' CHECK(trangThai IN ('ChoXacNhan', 'DaXacNhan', 'Huy')),
+    trangThai TEXT NOT NULL DEFAULT 'DaXacNhan' CHECK(trangThai IN ('ChoXacNhan', 'DaXacNhan', 'Huy', 'DaCheckIn')),
     qrCode TEXT,
+    thoiGianCheckIn TEXT,
     createdAt TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (nguoiThamDuId) REFERENCES NguoiThamDu(id) ON DELETE CASCADE,
     FOREIGN KEY (suKienId) REFERENCES SuKien(id) ON DELETE CASCADE,
@@ -139,6 +140,7 @@ CREATE TABLE IF NOT EXISTS BaoCaoDoanhThu (
     tongDoanhThu REAL NOT NULL CHECK(tongDoanhThu >= 0),
     soVeBan INTEGER NOT NULL DEFAULT 0 CHECK(soVeBan >= 0),
     doanhThuTheoHang TEXT,
+    ghiChu TEXT,
     createdAt TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (suKienId) REFERENCES SuKien(id) ON DELETE CASCADE
 );

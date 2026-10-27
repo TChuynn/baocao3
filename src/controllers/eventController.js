@@ -59,6 +59,7 @@ exports.deleteEvent = (req, res) => {
 
   db.run('DELETE FROM SuKien WHERE id = ?', [id], function (err) {
     if (err) return res.status(400).json({ message: 'Không thể xóa sự kiện' });
+    if (this.changes === 0) return res.status(404).json({ message: 'Không tìm thấy sự kiện' });
     return res.json({ message: 'Xóa sự kiện thành công' });
   });
 };

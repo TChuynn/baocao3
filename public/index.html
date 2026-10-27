@@ -3,268 +3,1447 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Event Management System with AI</title>
+  <title>AI EventHub - Hệ Thống Quản Lý Sự Kiện Đa Vai Trò</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css" />
+  <!-- HTML5 QR Code Scanner Library for real camera scanning -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body>
-  <div id="authModal" class="modal hidden">
-    <div class="modal-content">
+
+  <!-- ================= TOPBAR ================= -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand" id="brandLogo">
+        <span class="brand-icon">✨</span>
+        <span class="brand-text">AI EventHub</span>
+      </div>
+
+      <!-- Landing Navigation (Visible on landing page, hidden in role portals) -->
+      <nav class="landing-nav-links" id="landingNavLinks">
+        <a href="#landing-events" class="landing-nav-link">Sự kiện nổi bật</a>
+        <a href="#landing-features" class="landing-nav-link">Giải pháp & AI</a>
+        <a href="#landing-ai" class="landing-nav-link">Hỏi đáp AI 24/7</a>
+      </nav>
+
+      <!-- Role badge (Hidden on landing page, shown in role portals) -->
+      <div class="role-badge hidden" id="currentRoleBadge">
+        <span class="role-dot"></span>
+        <span id="roleLabel">Chưa đăng nhập</span>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <!-- User info (Hidden on landing page, shown in role portals) -->
+      <div class="user-info hidden" id="topbarUserInfo">
+        <div class="avatar" id="userAvatar">K</div>
+        <div class="user-meta">
+          <strong id="userName">Khách vãng lai</strong>
+          <small id="userRole">Chưa đăng nhập</small>
+        </div>
+      </div>
+
+      <!-- Landing Auth Actions (Shown on landing page) -->
+      <div class="landing-auth-actions" id="landingAuthActions">
+        <button id="btnLandingRegister" class="btn btn-outline btn-sm">Đăng ký tham dự</button>
+      </div>
+
+      <button id="authActionBtn" class="btn btn-primary">Đăng nhập</button>
+    </div>
+  </header>
+
+  <!-- ================= MAIN APP VIEWPORTS CONTAINER ================= -->
+  <div class="main-container">
+
+    <!-- ============================================================== -->
+    <!-- 0. TRANG CHỦ LANDING PAGE HỆ THỐNG (PUBLIC LANDING PAGE)       -->
+    <!-- ============================================================== -->
+    <div id="view-landing" class="role-viewport">
+      <div class="landing-container">
+
+        <!-- Hero Section -->
+        <section class="landing-hero">
+          <div class="landing-hero-content">
+            <div class="landing-badge">
+              <span class="badge-dot"></span>
+              <span>NỀN TẢNG QUẢN LÝ SỰ KIỆN TÍCH HỢP TRÍ TUỆ NHÂN TẠO 2026</span>
+            </div>
+            <h1 class="landing-title">
+              Kiến Tạo Sự Kiện Đẳng Cấp<br/>
+              <span class="gradient-text">Vận Hành Thông Minh Với AI</span>
+            </h1>
+            <p class="landing-subtitle">
+              Nền tảng toàn diện kết nối Ban tổ chức, Diễn giả, Nhân viên soát vé và Người tham dự. Đặt vé trực tuyến, phát hành mã QR check-in siêu tốc và hỗ trợ khách mời với Trợ lý AI thế hệ mới.
+            </p>
+            <div class="landing-cta-group">
+              <a href="#landing-events" class="btn btn-primary btn-lg">
+                🎟️ Khám phá sự kiện ngay
+              </a>
+              <button class="btn btn-outline btn-lg" id="btnLandingLoginHero">
+                🔐 Đăng nhập hệ thống
+              </button>
+            </div>
+
+            <!-- Live KPI Metric Strip -->
+            <div class="landing-stats-grid" id="landing-stats">
+              <div class="landing-stat-card">
+                <span class="stat-number" id="landingStatEvents">10+</span>
+                <span class="stat-label">Sự kiện công nghệ</span>
+              </div>
+              <div class="landing-stat-card">
+                <span class="stat-number" id="landingStatGuests">1,500+</span>
+                <span class="stat-label">Khách mời đã đăng ký</span>
+              </div>
+              <div class="landing-stat-card">
+                <span class="stat-number">⚡ 0.5s</span>
+                <span class="stat-label">Check-in Camera QR</span>
+              </div>
+              <div class="landing-stat-card">
+                <span class="stat-number">🤖 24/7</span>
+                <span class="stat-label">AI Trợ lý giải đáp</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Events Showcase Section -->
+        <section class="landing-section" id="landing-events">
+          <div class="landing-section-header">
+            <span class="section-tag">DANH MỤC SỰ KIỆN HÀNG ĐẦU</span>
+            <h2>Các sự kiện đang & sắp diễn ra</h2>
+            <p>Khám phá các hội nghị quốc tế, hội thảo chuyên sâu và workshop thực chiến công nghệ</p>
+          </div>
+
+          <div class="landing-events-grid" id="landingEventsGrid">
+            <!-- Dynamically populated by JS from /api/events -->
+            <div class="loading-spinner text-center" style="grid-column: 1/-1; padding: 40px; color: var(--text-muted);">
+              ⏳ Đang tải danh sách sự kiện...
+            </div>
+          </div>
+        </section>
+
+        <!-- Platform Solutions / Features Section -->
+        <section class="landing-section" id="landing-features">
+          <div class="landing-section-header">
+            <span class="section-tag">GIẢI PHÁP VẬN HÀNH ĐỘT PHÁ</span>
+            <h2>Công nghệ tối ưu cho từng khâu tổ chức</h2>
+            <p>Hệ thống tự động hóa từ phân phối vé, đón tiếp khách mời đến đối soát doanh thu</p>
+          </div>
+
+          <div class="landing-features-grid">
+            <div class="feature-card">
+              <div class="feature-icon-box purple">🎫</div>
+              <h3>Vé điện tử & Check-in QR Camera</h3>
+              <p>Mỗi lượt đăng ký được cấp mã QR mã hóa duy nhất. Nhân viên sử dụng camera máy tính/điện thoại để quét vé chỉ trong 0.5 giây, chống vé giả và chống trùng lặp tuyệt đối.</p>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-icon-box blue">🤖</div>
+              <h3>AI Studio & Content Generator</h3>
+              <p>Tự động hóa soạn thảo thư mời theo ngữ cảnh, nhắc lịch thông minh và tự động gom nhóm, tóm tắt hàng trăm phản hồi của người tham dự trong tích tắc.</p>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-icon-box green">💰</div>
+              <h3>Quản trị tài chính & Báo cáo doanh số</h3>
+              <p>Theo dõi luồng doanh thu vé theo từng hạng vé (VIP, Standard), tự động đối soát với cổng thanh toán và lập báo cáo tài chính quyết toán chuẩn mực.</p>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-icon-box gold">🛡️</div>
+              <h3>Phân quyền vai trò chuẩn mực</h3>
+              <p>Cách ly nghiệp vụ hoàn toàn giữa Quản trị viên, Ban tổ chức, Nhân viên soát vé và Kế toán. Mỗi phân hệ chỉ hiển thị đúng các chức năng được phân quyền.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- AI Chatbot Interactive Teaser Section -->
+        <section class="landing-section ai-teaser-section" id="landing-ai">
+          <div class="ai-teaser-card">
+            <div class="ai-teaser-info">
+              <span class="section-tag">AI ASSISTANT 24/7</span>
+              <h2>Bạn có câu hỏi về sự kiện? Trợ lý AI sẵn sàng hỗ trợ</h2>
+              <p>Hỏi về lịch trình hội thảo, thông tin diễn giả khách mời, sơ đồ phòng họp hay quy định check-in. AI luôn sẵn sàng phục vụ bạn mọi lúc mọi nơi.</p>
+              <div class="ai-sample-questions">
+                <button type="button" class="btn-sample-ask" data-ask="Sự kiện bắt đầu lúc mấy giờ?">
+                  💬 Sự kiện bắt đầu lúc mấy giờ?
+                </button>
+                <button type="button" class="btn-sample-ask" data-ask="Có cần mang theo máy tính không?">
+                  💻 Có cần mang theo máy tính không?
+                </button>
+                <button type="button" class="btn-sample-ask" data-ask="Quy trình check-in vé QR như thế nào?">
+                  🎫 Quy trình check-in vé QR như thế nào?
+                </button>
+              </div>
+            </div>
+            <div class="ai-teaser-chatbox">
+              <div class="teaser-chat-header">
+                <span class="status-indicator online"></span>
+                <strong>AI Event Assistant</strong>
+              </div>
+              <div class="teaser-chat-messages" id="landingChatMessages">
+                <div class="msg bot">Xin chào! Bạn quan tâm đến sự kiện nào hoặc cần hỗ trợ gì về lịch trình, vé tham dự?</div>
+              </div>
+              <form id="landingChatForm" class="teaser-chat-input-row">
+                <input type="text" id="landingChatInput" placeholder="Nhập câu hỏi của bạn..." required />
+                <button type="submit" class="btn btn-primary">Gửi</button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- Landing Footer -->
+        <footer class="landing-footer">
+          <div class="landing-footer-top">
+            <div class="footer-brand">
+              <div class="brand">
+                <span class="brand-icon">✨</span>
+                <span class="brand-text">AI EventHub</span>
+              </div>
+              <p>Hệ thống Quản lý và Vận hành Sự kiện Thông minh tích hợp Trí tuệ Nhân tạo thế hệ mới.</p>
+            </div>
+            <div class="footer-links-group">
+              <h4>Liên kết nhanh</h4>
+              <a href="#landing-events">Danh mục sự kiện</a>
+              <a href="#landing-features">Tính năng nền tảng</a>
+              <a href="#landing-ai">Trợ lý ảo AI</a>
+            </div>
+            <div class="footer-links-group">
+              <h4>Đăng nhập phân hệ</h4>
+              <a href="#" class="btn-footer-login" data-login-user="admin01">Quản trị viên (admin01)</a>
+              <a href="#" class="btn-footer-login" data-login-user="btc01">Ban tổ chức (btc01)</a>
+              <a href="#" class="btn-footer-login" data-login-user="checkin01">Nhân viên Check-in (checkin01)</a>
+              <a href="#" class="btn-footer-login" data-login-user="ketoan01">Kế toán (ketoan01)</a>
+            </div>
+          </div>
+          <div class="landing-footer-bottom">
+            <p>© 2026 AI EventHub. Bảo lưu mọi quyền. Dự án Ứng dụng Trí tuệ Nhân tạo.</p>
+          </div>
+        </footer>
+
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- 1. GIAO DIỆN QUẢN TRỊ VIÊN (ADMIN VIEW)                        -->
+    <!-- ============================================================== -->
+    <div id="view-admin" class="role-viewport hidden">
+      <aside class="role-sidebar">
+        <div class="sidebar-header">
+          <span class="portal-tag admin">ADMIN PORTAL</span>
+          <h3>Quản Trị Hệ Thống</h3>
+        </div>
+        <nav class="sidebar-nav">
+          <button class="nav-btn active" data-target="admin-dashboard">
+            <span class="nav-icon">📊</span> Tổng quan hệ thống
+          </button>
+          <button class="nav-btn" data-target="admin-accounts">
+            <span class="nav-icon">👥</span> Quản lý tài khoản & Quyền
+          </button>
+          <button class="nav-btn" data-target="admin-events">
+            <span class="nav-icon">🛡️</span> Giám sát toàn bộ sự kiện
+          </button>
+          <button class="nav-btn" data-target="admin-system">
+            <span class="nav-icon">⚙️</span> Cấu hình & Trạng thái
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="system-status-pill">
+            <span class="status-indicator online"></span> SQLite: Đang kết nối
+          </div>
+        </div>
+      </aside>
+
+      <main class="role-content">
+        <!-- Admin Section 1: Dashboard -->
+        <section id="admin-dashboard" class="role-screen active">
+          <div class="screen-header">
+            <div>
+              <h2>Bảng điều khiển Quản trị viên</h2>
+              <p class="subtitle">Giám sát các chỉ số vận hành toàn sàn và hoạt động của các phân hệ</p>
+            </div>
+            <button class="btn btn-primary" id="btnAdminQuickAccount">+ Thêm tài khoản mới</button>
+          </div>
+
+          <div class="kpi-grid four-col">
+            <div class="kpi-card">
+              <div class="kpi-icon blue">🎪</div>
+              <div class="kpi-data">
+                <span class="kpi-label">Tổng sự kiện</span>
+                <strong class="kpi-val" id="adminStatEvents">0</strong>
+                <small class="kpi-trend positive">Toàn bộ sàn</small>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon green">👥</div>
+              <div class="kpi-data">
+                <span class="kpi-label">Người tham dự</span>
+                <strong class="kpi-val" id="adminStatGuests">0</strong>
+                <small class="kpi-trend positive">Dữ liệu thực tế</small>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon purple">💰</div>
+              <div class="kpi-data">
+                <span class="kpi-label">Tổng doanh thu vé</span>
+                <strong class="kpi-val" id="adminStatRevenue">0 đ</strong>
+                <small class="kpi-trend positive">Từ các đơn hàng</small>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon orange">🛡️</div>
+              <div class="kpi-data">
+                <span class="kpi-label">Chỉ số an toàn AI</span>
+                <strong class="kpi-val" id="adminStatAi">96%</strong>
+                <small class="kpi-trend positive">Hệ thống ổn định</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="two-col-grid mt-4">
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>Phân bổ tài khoản theo vai trò</h3>
+                <span class="badge badge-info" id="adminAccountTotalBadge">0 tài khoản</span>
+              </div>
+              <div class="role-distribution-list" id="adminRoleDistribution">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>Sự kiện mới cập nhật</h3>
+                <button class="btn btn-sm btn-ghost" id="btnAdminRefreshEvents">Làm mới</button>
+              </div>
+              <div class="feed-list" id="adminUpcomingFeed">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Admin Section 2: Accounts -->
+        <section id="admin-accounts" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>Quản lý tài khoản & Phân quyền</h2>
+              <p class="subtitle">Tạo mới, gán vai trò (Admin, BTC, Check-in, Kế toán, Khách) và khóa tài khoản</p>
+            </div>
+          </div>
+
+          <div class="two-col-grid reverse-mobile accounts-grid">
+            <!-- Form tạo tài khoản -->
+            <div class="glass-panel admin-form-panel">
+              <div class="panel-header">
+                <h3>Thêm tài khoản mới</h3>
+              </div>
+              <form id="adminNewAccountForm" class="styled-form">
+                <div class="form-group">
+                  <label>Tên đăng nhập</label>
+                  <input type="text" name="tenDangNhap" placeholder="vd: ketoan02" required />
+                </div>
+                <div class="form-group">
+                  <label>Email liên hệ</label>
+                  <input type="email" name="email" placeholder="vd: ketoan02@eventdemo.vn" required />
+                </div>
+                <div class="form-group">
+                  <label>Mật khẩu khởi tạo</label>
+                  <input type="password" name="matKhau" placeholder="Nhập mật khẩu" required />
+                </div>
+                <div class="form-group">
+                  <label>Họ và tên người dùng</label>
+                  <input type="text" name="hoTen" placeholder="vd: Đỗ Thị Kế Toán" required />
+                </div>
+                <div class="form-group">
+                  <label>Vai trò hệ thống</label>
+                  <select name="vaiTro" required>
+                    <option value="QuanTriVien">👑 Quản trị viên (Admin)</option>
+                    <option value="BanToChuc">🎪 Ban tổ chức (Organizer)</option>
+                    <option value="NhanVienCheckIn">🎫 Nhân viên check-in (Staff)</option>
+                    <option value="KeToan">💰 Kế toán (Accountant)</option>
+                    <option value="NguoiThamDu">👤 Người tham dự (Guest/Attendee)</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Tạo tài khoản ngay</button>
+              </form>
+            </div>
+
+            <!-- Danh sách tài khoản -->
+            <div class="glass-panel admin-table-panel">
+              <div class="panel-header">
+                <h3>Danh sách tài khoản hệ thống</h3>
+                <span class="badge" id="adminAccountsCount">Đang tải...</span>
+              </div>
+              <div class="table-container">
+                <table class="styled-table admin-account-table">
+                  <thead>
+                    <tr>
+                      <th style="min-width: 150px;">Tài khoản</th>
+                      <th style="min-width: 130px;">Họ tên</th>
+                      <th style="min-width: 185px;">Vai trò</th>
+                      <th style="min-width: 140px;">Trạng thái</th>
+                      <th style="min-width: 80px; text-align: center;">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminAccountTableBody">
+                    <!-- Populated by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Admin Section 3: Events Supervision -->
+        <section id="admin-events" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>Giám sát tất cả sự kiện</h2>
+              <p class="subtitle">Quản trị viên có toàn quyền xem xét, cập nhật và xóa sự kiện trên toàn hệ thống</p>
+            </div>
+          </div>
+          <div class="card-grid" id="adminEventsList">
+            <!-- Injected by JS -->
+          </div>
+        </section>
+
+        <!-- Admin Section 4: System Config -->
+        <section id="admin-system" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>Trạng thái hệ thống & Cấu hình</h2>
+              <p class="subtitle">Thông tin môi trường, database và các dịch vụ AI</p>
+            </div>
+          </div>
+          <div class="two-col-grid">
+            <div class="glass-panel">
+              <h3>Thông số máy chủ</h3>
+              <ul class="info-list">
+                <li><span>Hệ thống:</span> <strong>Node.js + Express 5</strong></li>
+                <li><span>Cơ sở dữ liệu:</span> <strong>SQLite 3 (WAL / Foreign keys enabled)</strong></li>
+                <li><span>Bảo mật Auth:</span> <strong>JWT + Bcrypt (Salt rounds 10)</strong></li>
+                <li><span>AI Model Module:</span> <strong>Event Assistant AI (Integrated)</strong></li>
+                <li><span>Cổng thanh toán & đối soát:</span> <strong>Kế toán module hoạt động</strong></li>
+              </ul>
+            </div>
+            <div class="glass-panel">
+              <h3>Dọn dẹp & Khởi tạo dữ liệu mẫu</h3>
+              <p class="text-muted">Đặt lại dữ liệu sự kiện, vé và phân quyền chuẩn cho các bài thuyết trình và chấm điểm demo.</p>
+              <button class="btn btn-danger mt-3" id="btnAdminResetSeed">Khởi tạo lại dữ liệu mẫu (Reset Data)</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- 2. GIAO DIỆN BAN TỔ CHỨC (ORGANIZER VIEW)                      -->
+    <!-- ============================================================== -->
+    <div id="view-btc" class="role-viewport hidden">
+      <aside class="role-sidebar">
+        <div class="sidebar-header">
+          <span class="portal-tag btc">ORGANIZER STUDIO</span>
+          <h3>Ban Tổ Chức</h3>
+        </div>
+        <nav class="sidebar-nav">
+          <button class="nav-btn active" data-target="btc-events">
+            <span class="nav-icon">🎪</span> Quản lý sự kiện
+          </button>
+          <button class="nav-btn" data-target="btc-sessions">
+            <span class="nav-icon">⏱️</span> Lịch trình & Phiên
+          </button>
+          <button class="nav-btn" data-target="btc-speakers">
+            <span class="nav-icon">🎙️</span> Diễn giả hội thảo
+          </button>
+          <button class="nav-btn" data-target="btc-tickets">
+            <span class="nav-icon">🏷️</span> Thiết lập hạng vé
+          </button>
+          <button class="nav-btn" data-target="btc-ai">
+            <span class="nav-icon">🧠</span> AI Studio cho BTC
+          </button>
+          <button class="nav-btn" data-target="btc-feedbacks">
+            <span class="nav-icon">💬</span> Phản hồi người tham dự
+          </button>
+        </nav>
+      </aside>
+
+      <main class="role-content">
+        <!-- BTC Section 1: Events -->
+        <section id="btc-events" class="role-screen active">
+          <div class="screen-header">
+            <div>
+              <h2>Quản lý sự kiện của Ban tổ chức</h2>
+              <p class="subtitle">Thêm mới sự kiện, điều chỉnh ngày giờ, địa điểm và trạng thái vận hành</p>
+            </div>
+            <button class="btn btn-primary" id="btnBtcCreateEvent">+ Tạo sự kiện mới</button>
+          </div>
+          <div class="card-grid" id="btcEventsGrid">
+            <!-- Populated by JS -->
+          </div>
+        </section>
+
+        <!-- BTC Section 2: Sessions -->
+        <section id="btc-sessions" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>Quản lý Phiên hội thảo & Lịch trình</h2>
+              <p class="subtitle">Lập lịch các phiên thuyết trình, workshop và phòng diễn ra</p>
+            </div>
+          </div>
+          <div class="two-col-grid">
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>Thêm phiên nội dung</h3>
+              </div>
+              <form id="btcSessionForm" class="styled-form">
+                <div class="form-group">
+                  <label>Thuộc sự kiện</label>
+                  <select name="suKienId" id="btcSessionEventSelect" required></select>
+                </div>
+                <div class="form-row two-col">
+                  <div class="form-group">
+                    <label>Mã phiên</label>
+                    <input type="text" name="maPhien" placeholder="vd: P-101" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Phòng / Địa điểm</label>
+                    <input type="text" name="phong" placeholder="vd: Innovation Hall A" />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Tên phiên hội thảo</label>
+                  <input type="text" name="tenPhien" placeholder="vd: Workshop: AI Agents in Real Life" required />
+                </div>
+                <div class="form-group">
+                  <label>Thời gian bắt đầu</label>
+                  <input type="datetime-local" name="ngayGio" required />
+                </div>
+                <div class="form-group">
+                  <label>Mô tả tóm tắt phiên</label>
+                  <textarea name="moTa" rows="3" placeholder="Nội dung chính của phiên..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Lưu phiên nội dung</button>
+              </form>
+            </div>
+
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>Danh sách phiên đã lên lịch</h3>
+                <span class="badge" id="btcSessionCount">0 phiên</span>
+              </div>
+              <div class="feed-list" id="btcSessionList"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- BTC Section 3: Speakers -->
+        <section id="btc-speakers" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>Quản lý Diễn giả (Speakers)</h2>
+              <p class="subtitle">Thông tin các chuyên gia, diễn giả và khách mời danh dự</p>
+            </div>
+          </div>
+          <div class="two-col-grid">
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>Thêm diễn giả mới</h3>
+              </div>
+              <form id="btcSpeakerForm" class="styled-form">
+                <div class="form-row two-col">
+                  <div class="form-group">
+                    <label>Mã diễn giả</label>
+                    <input type="text" name="maDienGia" placeholder="vd: SPK-009" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Chuyên ngành / Chức vụ</label>
+                    <input type="text" name="chuyenNganh" placeholder="vd: AI Research Lead" required />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Họ và tên diễn giả</label>
+                  <input type="text" name="tenDienGia" placeholder="vd: TS. Lê Thanh Hải" required />
+                </div>
+                <div class="form-group">
+                  <label>Ảnh đại diện (URL)</label>
+                  <input type="url" name="avatarUrl" placeholder="https://images.unsplash.com/..." />
+                </div>
+                <div class="form-group">
+                  <label>Tiểu sử / Giới thiệu</label>
+                  <textarea name="gioiThieu" rows="3" placeholder="Kinh nghiệm và các dự án đã làm..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Thêm diễn giả</button>
+              </form>
+            </div>
+
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>Danh sách diễn giả</h3>
+                <span class="badge" id="btcSpeakerCount">0 diễn giả</span>
+              </div>
+              <div class="speaker-grid" id="btcSpeakerList"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- BTC Section 4: Tickets Configuration -->
+        <section id="btc-tickets" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>Thiết lập Hạng vé Sự kiện</h2>
+              <p class="subtitle">Định cấu hình các gói vé VIP, Standard, Early Bird, số lượng và giá mở bán</p>
+            </div>
+          </div>
+          <div class="two-col-grid">
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>Thêm hạng vé mới</h3>
+              </div>
+              <form id="btcTicketForm" class="styled-form">
+                <div class="form-group">
+                  <label>Sự kiện áp dụng</label>
+                  <select name="suKienId" id="btcTicketEventSelect" required></select>
+                </div>
+                <div class="form-row two-col">
+                  <div class="form-group">
+                    <label>Mã hạng vé</label>
+                    <input type="text" name="maHangVe" placeholder="vd: TICKET-VIP2" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Tên hạng vé</label>
+                    <input type="text" name="tenHangVe" placeholder="vd: Vé VIP Vàng" required />
+                  </div>
+                </div>
+                <div class="form-row two-col">
+                  <div class="form-group">
+                    <label>Giá vé (VNĐ)</label>
+                    <input type="number" name="gia" placeholder="vd: 1500000" min="0" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Số lượng phát hành</label>
+                    <input type="number" name="soLuong" placeholder="vd: 100" min="1" required />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Mô tả quyền lợi</label>
+                  <textarea name="moTa" rows="3" placeholder="Quyền lợi đi kèm của hạng vé này..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Tạo hạng vé</button>
+              </form>
+            </div>
+
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>Các hạng vé đang mở bán</h3>
+                <span class="badge" id="btcTicketCount">0 hạng vé</span>
+              </div>
+              <div class="feed-list" id="btcTicketList"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- BTC Section 5: AI Studio -->
+        <section id="btc-ai" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>AI Studio cho Ban Tổ Chức</h2>
+              <p class="subtitle">Ứng dụng AI tạo thông báo truyền thông và phân tích phản hồi người tham dự</p>
+            </div>
+          </div>
+          <div class="two-col-grid">
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>✨ AI Sinh Thông Báo Truyền Thông</h3>
+              </div>
+              <div class="form-group">
+                <label>Loại thông báo</label>
+                <select id="aiNotificationType">
+                  <option value="MoiThamDu">Thư mời tham dự chính thức</option>
+                  <option value="NhaNho">Nhắc lịch trước sự kiện (Reminder)</option>
+                  <option value="CamOn">Thư cảm ơn sau sự kiện</option>
+                  <option value="Khac">Thông báo khẩn cấp / Thay đổi lịch</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Sự kiện</label>
+                <select id="aiNotificationEvent"></select>
+              </div>
+              <div class="form-group">
+                <label>Ý chính cần truyền đạt</label>
+                <textarea id="aiNotificationPrompt" rows="4" placeholder="Nhập tóm tắt nội dung bạn muốn truyền đạt...">Chào mừng các quý khách đã đăng ký tham gia AI Summit 2025. Xin lưu ý có mặt lúc 8h30 để check-in và nhận quà tặng check-in tại sảnh chính.</textarea>
+              </div>
+              <button class="btn btn-accent btn-block" id="btnAiGenerateNotification">Sinh thông báo bằng AI</button>
+
+              <div class="ai-result-box mt-3" id="aiNotificationResult">
+                <p class="text-muted">Nội dung do AI tạo ra sẽ hiển thị ở đây...</p>
+              </div>
+            </div>
+
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>📊 AI Tóm Tắt & Phân Tích Phản Hồi</h3>
+              </div>
+              <p class="text-muted">Chọn sự kiện để AI tự động gom nhóm, tính phần trăm cảm xúc và đưa ra nhận xét cải thiện.</p>
+              <div class="form-group">
+                <label>Sự kiện cần phân tích</label>
+                <select id="aiSummaryEventSelect"></select>
+              </div>
+              <button class="btn btn-primary btn-block" id="btnAiSummarizeFeedback">Phân tích phản hồi với AI</button>
+
+              <div class="ai-summary-card mt-3" id="aiSummaryOutput">
+                <p class="text-muted">Chưa có kết quả phân tích. Hãy nhấn nút để bắt đầu.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- BTC Section 6: Feedbacks -->
+        <section id="btc-feedbacks" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>Ý kiến & Phản hồi từ Người tham dự</h2>
+              <p class="subtitle">Đánh giá sao và nhận xét chi tiết gửi về từ người tham gia</p>
+            </div>
+          </div>
+          <div class="glass-panel">
+            <div class="feedbacks-container" id="btcFeedbacksList">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- 3. GIAO DIỆN NHÂN VIÊN CHECK-IN (CHECK-IN STAFF VIEW)          -->
+    <!-- ============================================================== -->
+    <div id="view-checkin" class="role-viewport hidden">
+      <aside class="role-sidebar">
+        <div class="sidebar-header">
+          <span class="portal-tag staff">CHECK-IN DESK</span>
+          <h3>Trạm Check-in</h3>
+        </div>
+        <nav class="sidebar-nav">
+          <button class="nav-btn active" data-target="staff-scanner">
+            <span class="nav-icon">📷</span> Quầy Quét Mã & Nhập Vé
+          </button>
+          <button class="nav-btn" data-target="staff-list">
+            <span class="nav-icon">📋</span> Danh sách khách mời
+          </button>
+          <button class="nav-btn" data-target="staff-progress">
+            <span class="nav-icon">📈</span> Tiến độ đón khách
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="checkin-live-counter">
+            <span class="counter-label">Đã check-in hôm nay:</span>
+            <strong class="counter-val" id="staffLiveCheckinCount">0</strong>
+          </div>
+        </div>
+      </aside>
+
+      <main class="role-content">
+        <!-- Staff Section 1: Scanner Desk -->
+        <section id="staff-scanner" class="role-screen active">
+          <div class="screen-header">
+            <div>
+              <h2>Bàn tiếp đón & Quét mã Check-in</h2>
+              <p class="subtitle">Sử dụng Camera để quét mã QR trên điện thoại khách hoặc nhập nhanh mã vé</p>
+            </div>
+          </div>
+
+          <div class="two-col-grid">
+            <!-- Camera & Scanner box -->
+            <div class="glass-panel text-center">
+              <div class="panel-header justify-center">
+                <h3>Quét mã QR qua Camera</h3>
+              </div>
+
+              <div id="qrReaderContainer" class="qr-camera-box">
+                <div id="qr-reader" style="width: 100%;"></div>
+                <div id="qrReaderPlaceholder" class="qr-placeholder">
+                  <div class="qr-scan-anim"></div>
+                  <p>Nhấn nút dưới để kích hoạt máy quét camera</p>
+                </div>
+              </div>
+
+              <div class="camera-actions mt-3">
+                <button class="btn btn-accent" id="btnToggleCamera">Bật Camera Quét QR</button>
+                <button class="btn btn-outline" id="btnStopCamera" style="display:none;">Tắt Camera</button>
+              </div>
+
+              <!-- Manual code input fallback -->
+              <div class="manual-code-box mt-4">
+                <span class="divider-text">HOẶC NHẬP MÃ THỦ CÔNG</span>
+                <form id="staffManualCheckinForm" class="flex-row gap-2 mt-2">
+                  <input type="text" id="staffCodeInput" placeholder="Nhập mã QR hoặc mã vé (vd: QR-REG-001)" required />
+                  <button type="submit" class="btn btn-primary">Xác nhận</button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Check-in Result Card -->
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>Kết quả Check-in Thời gian thực</h3>
+                <span class="badge" id="checkinStatusBadge">Đang chờ quét...</span>
+              </div>
+
+              <div id="checkinResultCard" class="checkin-result-card waiting">
+                <div class="result-icon-large" id="resultIcon">🎫</div>
+                <h3 id="resultTitle">Sẵn sàng đón tiếp khách</h3>
+                <p id="resultDesc">Quét mã QR trên vé hoặc nhập mã đăng ký để tiến hành kiểm tra hợp lệ.</p>
+
+                <div id="resultDetails" class="result-details hidden">
+                  <div class="detail-row">
+                    <span>Khách tham dự:</span>
+                    <strong id="resAttendeeName">-</strong>
+                  </div>
+                  <div class="detail-row">
+                    <span>Hạng vé:</span>
+                    <strong id="resTicketTier">-</strong>
+                  </div>
+                  <div class="detail-row">
+                    <span>Sự kiện:</span>
+                    <strong id="resEventName">-</strong>
+                  </div>
+                  <div class="detail-row">
+                    <span>Mã vé:</span>
+                    <strong id="resTicketCode">-</strong>
+                  </div>
+                  <div class="detail-row">
+                    <span>Thời gian check-in:</span>
+                    <strong id="resCheckinTime">-</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="quick-sample-codes mt-3">
+                <small class="text-muted">Mã vé demo có sẵn để test nhanh:</small>
+                <div class="sample-chips">
+                  <button type="button" class="chip-btn" data-code="QR-REG-001">QR-REG-001 (VIP)</button>
+                  <button type="button" class="chip-btn" data-code="QR-REG-002">QR-REG-002 (Đã dùng)</button>
+                  <button type="button" class="chip-btn" data-code="QR-REG-003">QR-REG-003 (VIP)</button>
+                  <button type="button" class="chip-btn" data-code="QR-REG-004">QR-REG-004 (Đã dùng)</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Staff Section 2: Guest List -->
+        <section id="staff-list" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>Danh sách khách mời & Điểm danh</h2>
+              <p class="subtitle">Tra cứu tên, email, số điện thoại hoặc bấm check-in trực tiếp 1-chạm</p>
+            </div>
+            <div class="search-box">
+              <input type="text" id="staffSearchInput" placeholder="Tìm tên, email, mã vé..." />
+            </div>
+          </div>
+
+          <div class="filter-bar">
+            <button class="filter-tab active" data-filter="all">Tất cả khách (<span id="countAll">0</span>)</button>
+            <button class="filter-tab" data-filter="DaCheckIn">Đã check-in (<span id="countChecked">0</span>)</button>
+            <button class="filter-tab" data-filter="DaXacNhan">Chưa check-in (<span id="countUnchecked">0</span>)</button>
+          </div>
+
+          <div class="glass-panel mt-3">
+            <div class="table-container">
+              <table class="styled-table">
+                <thead>
+                  <tr>
+                    <th>Khách mời</th>
+                    <th>Liên hệ</th>
+                    <th>Sự kiện</th>
+                    <th>Hạng vé</th>
+                    <th>Mã vé / QR</th>
+                    <th>Trạng thái</th>
+                    <th>Hành động</th>
+                  </tr>
+                </thead>
+                <tbody id="staffAttendeesTableBody">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Staff Section 3: Checkin Progress -->
+        <section id="staff-progress" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>Tiến độ check-in theo sự kiện</h2>
+              <p class="subtitle">Thống kê tỷ lệ khách đã đến sự kiện theo thời gian thực</p>
+            </div>
+          </div>
+          <div class="kpi-grid three-col">
+            <div class="kpi-card">
+              <div class="kpi-icon blue">👥</div>
+              <div class="kpi-data">
+                <span class="kpi-label">Tổng khách đăng ký</span>
+                <strong class="kpi-val" id="staffStatTotal">0</strong>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon green">✅</div>
+              <div class="kpi-data">
+                <span class="kpi-label">Đã có mặt (Check-in)</span>
+                <strong class="kpi-val" id="staffStatChecked">0</strong>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon orange">⏳</div>
+              <div class="kpi-data">
+                <span class="kpi-label">Chưa đến</span>
+                <strong class="kpi-val" id="staffStatNotChecked">0</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-panel mt-4">
+            <h3>Tỷ lệ đón khách hoàn thành</h3>
+            <div class="progress-bar-container mt-2">
+              <div class="progress-bar-fill" id="staffProgressBar" style="width: 0%;"></div>
+            </div>
+            <div class="flex-between mt-2">
+              <span id="staffProgressText">0% khách đã hoàn tất check-in</span>
+              <span id="staffRatioText">0 / 0</span>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- 4. GIAO DIỆN KẾ TOÁN (ACCOUNTANT VIEW)                          -->
+    <!-- ============================================================== -->
+    <div id="view-ketoan" class="role-viewport hidden">
+      <aside class="role-sidebar">
+        <div class="sidebar-header">
+          <span class="portal-tag ketoan">FINANCE PORTAL</span>
+          <h3>Kế Toán & Doanh Thu</h3>
+        </div>
+        <nav class="sidebar-nav">
+          <button class="nav-btn active" data-target="ketoan-overview">
+            <span class="nav-icon">📊</span> Tổng quan tài chính
+          </button>
+          <button class="nav-btn" data-target="ketoan-transactions">
+            <span class="nav-icon">🧾</span> Đơn hàng & Giao dịch
+          </button>
+          <button class="nav-btn" data-target="ketoan-reports">
+            <span class="nav-icon">📑</span> Báo cáo & Quyết toán
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <button class="btn btn-outline btn-block btn-sm" id="btnKetoanPrint">🖨️ In bảng tổng hợp</button>
+        </div>
+      </aside>
+
+      <main class="role-content">
+        <!-- KeToan Section 1: Overview -->
+        <section id="ketoan-overview" class="role-screen active">
+          <div class="screen-header">
+            <div>
+              <h2>Báo cáo tổng quan tài chính</h2>
+              <p class="subtitle">Thống kê doanh số bán vé, doanh thu theo sự kiện và tỷ trọng theo hạng vé</p>
+            </div>
+            <button class="btn btn-primary" id="btnKetoanNewReport">+ Lập báo cáo doanh thu mới</button>
+          </div>
+
+          <div class="kpi-grid three-col">
+            <div class="kpi-card">
+              <div class="kpi-icon green">💵</div>
+              <div class="kpi-data">
+                <span class="kpi-label">Tổng doanh thu bán vé</span>
+                <strong class="kpi-val" id="ketoanTotalRevenue">0 đ</strong>
+                <small class="kpi-trend positive">Tính trên các đơn đặt vé thực tế</small>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon blue">🎟️</div>
+              <div class="kpi-data">
+                <span class="kpi-label">Tổng số vé đã bán</span>
+                <strong class="kpi-val" id="ketoanTotalTickets">0</strong>
+                <small class="kpi-trend positive">Vé đã thanh toán / xác nhận</small>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon purple">📈</div>
+              <div class="kpi-data">
+                <span class="kpi-label">Giá vé trung bình</span>
+                <strong class="kpi-val" id="ketoanAvgPrice">0 đ</strong>
+                <small class="kpi-trend positive">Doanh thu / số vé</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="two-col-grid mt-4">
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>Doanh thu theo Sự kiện</h3>
+              </div>
+              <div class="revenue-by-event-list" id="ketoanByEventList">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>Tỷ trọng Doanh thu theo Hạng vé</h3>
+              </div>
+              <div class="revenue-by-tier-list" id="ketoanByTierList">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- KeToan Section 2: Transactions -->
+        <section id="ketoan-transactions" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>Sổ giao dịch & Đơn đặt vé</h2>
+              <p class="subtitle">Chi tiết từng giao dịch đặt vé phát sinh, đối soát với cổng thanh toán</p>
+            </div>
+            <button class="btn btn-outline" id="btnExportCsv">Xuất CSV</button>
+          </div>
+
+          <div class="glass-panel">
+            <div class="table-container">
+              <table class="styled-table" id="transactionTable">
+                <thead>
+                  <tr>
+                    <th>Mã đơn</th>
+                    <th>Thời gian</th>
+                    <th>Người thanh toán</th>
+                    <th>Sự kiện</th>
+                    <th>Hạng vé</th>
+                    <th>Số tiền</th>
+                    <th>Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody id="ketoanTransactionsTableBody">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- KeToan Section 3: Reports -->
+        <section id="ketoan-reports" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>Báo cáo tài chính & Quyết toán</h2>
+              <p class="subtitle">Lưu trữ các kỳ báo cáo doanh thu sự kiện phục vụ kiểm toán nội bộ</p>
+            </div>
+            <button class="btn btn-primary" id="btnOpenReportModal">+ Lập báo cáo mới</button>
+          </div>
+
+          <div class="glass-panel">
+            <div class="table-container">
+              <table class="styled-table">
+                <thead>
+                  <tr>
+                    <th>Mã báo cáo</th>
+                    <th>Sự kiện</th>
+                    <th>Tổng doanh thu</th>
+                    <th>Số vé bán</th>
+                    <th>Ghi chú quyết toán</th>
+                    <th>Ngày lập</th>
+                  </tr>
+                </thead>
+                <tbody id="ketoanReportsTableBody">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- 5. GIAO DIỆN NGƯỜI THAM DỰ (ATTENDEE / GUEST VIEW)            -->
+    <!-- ============================================================== -->
+    <div id="view-attendee" class="role-viewport hidden">
+      <aside class="role-sidebar">
+        <div class="sidebar-header">
+          <span class="portal-tag attendee">ATTENDEE HUB</span>
+          <h3>Cổng Người Tham Dự</h3>
+        </div>
+        <nav class="sidebar-nav">
+          <button class="nav-btn active" data-target="attendee-explore">
+            <span class="nav-icon">🌟</span> Khám phá sự kiện
+          </button>
+          <button class="nav-btn" data-target="attendee-tickets">
+            <span class="nav-icon">🎟️</span> Vé của tôi (QR Pass)
+          </button>
+          <button class="nav-btn" data-target="attendee-feedback">
+            <span class="nav-icon">⭐</span> Gửi đánh giá phản hồi
+          </button>
+          <button class="nav-btn" data-target="attendee-chatbot">
+            <span class="nav-icon">🤖</span> AI Trợ lý hỏi đáp
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="attendee-quick-register-callout">
+            <small>Cần hỗ trợ vé?</small>
+            <p>Hỏi trợ lý AI hoặc liên hệ BTC sự kiện.</p>
+          </div>
+        </div>
+      </aside>
+
+      <main class="role-content">
+        <!-- Attendee Section 1: Explore -->
+        <section id="attendee-explore" class="role-screen active">
+          <!-- Public Guest Notice Banner (Only shown in Guest mode) -->
+          <div class="public-guest-banner hidden" id="publicGuestBanner">
+            <div>
+              <strong>💡 Bạn đang xem ở chế độ Khách vãng lai (Công khai)</strong>
+              <p>Để quản lý vé cá nhân, quét mã QR soát vé, điều hành sự kiện hoặc xem báo cáo tài chính, vui lòng đăng nhập vào hệ thống.</p>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btnBannerToLogin">🔐 Đăng nhập hệ thống</button>
+          </div>
+
+          <!-- Hero Banner -->
+          <div class="hero-banner">
+            <div class="hero-content">
+              <span class="badge badge-accent">SỰ KIỆN NỔI BẬT NĂM NAY</span>
+              <h1>Kết nối Tương lai Công nghệ & Trí Tuệ Nhân Tạo</h1>
+              <p>Khám phá các hội nghị quốc tế, workshop thực chiến và cơ hội kết nối cùng các chuyên gia đầu ngành.</p>
+              <div class="hero-actions">
+                <a href="#attendeeEventsList" class="btn btn-primary">Xem các sự kiện</a>
+                <button class="btn btn-outline" id="btnAttendeeAiAsk">Trò chuyện với AI</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="screen-header mt-4">
+            <div>
+              <h2>Các sự kiện đang và sắp diễn ra</h2>
+              <p class="subtitle">Đăng ký tham dự trực tuyến và nhận vé QR Code tức thì</p>
+            </div>
+          </div>
+
+          <div class="event-cards-stream" id="attendeeEventsList">
+            <!-- Populated by JS -->
+          </div>
+        </section>
+
+        <!-- Attendee Section 2: My Tickets -->
+        <section id="attendee-tickets" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>Vé của tôi & Mã QR Check-in</h2>
+              <p class="subtitle">Xuất trình mã QR này tại quầy tiếp đón để nhân viên check-in vào cửa</p>
+            </div>
+            <div class="ticket-lookup-bar">
+              <input type="email" id="attendeeEmailFilter" placeholder="Nhập email của bạn để tra vé..." />
+              <button class="btn btn-primary" id="btnLookupMyTickets">Tra cứu vé</button>
+            </div>
+          </div>
+
+          <div class="tickets-gallery" id="attendeeTicketsGallery">
+            <!-- Populated by JS -->
+          </div>
+        </section>
+
+        <!-- Attendee Section 3: Feedback -->
+        <section id="attendee-feedback" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>Gửi đánh giá & Phản hồi sự kiện</h2>
+              <p class="subtitle">Ý kiến đóng góp quý báu của bạn giúp chúng tôi nâng cao chất lượng các sự kiện tiếp theo</p>
+            </div>
+          </div>
+
+          <div class="two-col-grid">
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>Gửi cảm nhận của bạn</h3>
+              </div>
+              <form id="attendeeFeedbackForm" class="styled-form">
+                <div class="form-group">
+                  <label>Chọn sự kiện bạn đã tham dự</label>
+                  <select name="suKienId" id="feedbackEventSelect" required></select>
+                </div>
+                <div class="form-group">
+                  <label>Email của bạn (tùy chọn)</label>
+                  <input type="email" name="email" id="feedbackEmailInput" placeholder="Nhập email để nhận quà cảm ơn..." />
+                </div>
+                <div class="form-group">
+                  <label>Đánh giá tổng thể (Sao)</label>
+                  <div class="star-rating">
+                    <input type="radio" id="star5" name="danhGia" value="5" checked /><label for="star5">★</label>
+                    <input type="radio" id="star4" name="danhGia" value="4" /><label for="star4">★</label>
+                    <input type="radio" id="star3" name="danhGia" value="3" /><label for="star3">★</label>
+                    <input type="radio" id="star2" name="danhGia" value="2" /><label for="star2">★</label>
+                    <input type="radio" id="star1" name="danhGia" value="1" /><label for="star1">★</label>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Chủ đề phản hồi</label>
+                  <select name="nhomYKien">
+                    <option value="Nội dung chuyên môn">Nội dung chuyên môn</option>
+                    <option value="Không gian & Tổ chức">Không gian & Khâu tổ chức</option>
+                    <option value="Diễn giả & Tương tác">Diễn giả & Tương tác Q&A</option>
+                    <option value="Trải nghiệm check-in">Trải nghiệm check-in</option>
+                    <option value="Đóng góp khác">Đóng góp khác</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Chia sẻ chi tiết</label>
+                  <textarea name="phanHoi" rows="4" placeholder="Bạn thấy sự kiện thế nào? Cần cải thiện điều gì?..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Gửi đánh giá</button>
+              </form>
+            </div>
+
+            <div class="glass-panel">
+              <div class="panel-header">
+                <h3>Các nhận xét gần đây từ cộng đồng</h3>
+              </div>
+              <div class="feedbacks-container" id="attendeePublicFeedbacks">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Attendee Section 4: Chatbot -->
+        <section id="attendee-chatbot" class="role-screen">
+          <div class="screen-header">
+            <div>
+              <h2>AI Trợ lý Thông tin Sự kiện</h2>
+              <p class="subtitle">Giải đáp mọi thắc mắc về lịch trình, diễn giả, phòng họp và quy định check-in 24/7</p>
+            </div>
+          </div>
+
+          <div class="glass-panel chatbot-fullpage">
+            <div class="chat-messages-scroll" id="fullpageChatMessages">
+              <div class="msg bot">
+                Xin chào bạn! Tôi là Trợ lý AI của AI EventHub. Bạn có thắc mắc gì về thời gian, địa điểm, các phiên workshop hay cách thức đăng ký vé không?
+              </div>
+            </div>
+            <form id="fullpageChatForm" class="chat-input-bar">
+              <input type="text" id="fullpageChatInput" placeholder="Ví dụ: Sự kiện bắt đầu lúc mấy giờ? Có cần mang máy tính không?..." required />
+              <button type="submit" class="btn btn-primary">Gửi câu hỏi</button>
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+
+  </div> <!-- /main-container -->
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- Modal Đăng nhập -->
+  <div id="authModal" class="modal-overlay hidden">
+    <div class="modal-card">
       <div class="modal-header">
         <h3>Đăng nhập hệ thống</h3>
-        <button type="button" class="icon-btn" data-close="authModal">×</button>
+        <button type="button" class="close-btn" data-close="authModal">×</button>
       </div>
-      <form id="loginForm" class="stack-form">
-        <input type="text" name="tenDangNhap" placeholder="Tên đăng nhập" required />
-        <input type="password" name="matKhau" placeholder="Mật khẩu" required />
-        <button type="submit" class="primary">Đăng nhập</button>
+      <form id="loginForm" class="styled-form">
+        <div class="form-group">
+          <label>Tên đăng nhập hoặc Email</label>
+          <input type="text" name="tenDangNhap" placeholder="Nhập tên đăng nhập hoặc email của bạn" required />
+        </div>
+        <div class="form-group">
+          <label>Mật khẩu</label>
+          <input type="password" name="matKhau" placeholder="Nhập mật khẩu" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Đăng nhập ngay</button>
+      </form>
+      <div class="modal-footer text-center mt-3">
+        <small class="text-muted">Chưa có tài khoản? <a href="#" id="btnShowRegister">Đăng ký tham dự</a></small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Đăng ký tài khoản người tham dự -->
+  <div id="registerModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Đăng ký tài khoản Người tham dự</h3>
+        <button type="button" class="close-btn" data-close="registerModal">×</button>
+      </div>
+      <form id="registerForm" class="styled-form">
+        <div class="form-group">
+          <label>Họ và tên</label>
+          <input type="text" name="hoTen" placeholder="vd: Nguyễn Văn A" required />
+        </div>
+        <div class="form-group">
+          <label>Tên đăng nhập</label>
+          <input type="text" name="tenDangNhap" placeholder="vd: nguyenvana" required />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" name="email" placeholder="vd: an@gmail.com" required />
+        </div>
+        <div class="form-group">
+          <label>Mật khẩu</label>
+          <input type="password" name="matKhau" placeholder="Nhập mật khẩu" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Tạo tài khoản</button>
+      </form>
+      <div class="modal-footer text-center mt-3">
+        <small class="text-muted">Đã có tài khoản? <a href="#" id="btnBackToLogin">Đăng nhập</a></small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Đặt vé Sự kiện (Dành cho Người tham dự) -->
+  <div id="bookTicketModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="bookModalEventTitle">Đăng ký mua vé tham dự</h3>
+        <button type="button" class="close-btn" data-close="bookTicketModal">×</button>
+      </div>
+      <form id="bookTicketForm" class="styled-form">
+        <input type="hidden" name="eventId" id="bookModalEventId" />
+        <div class="form-group">
+          <label>Họ và tên người tham dự</label>
+          <input type="text" name="fullName" id="bookModalFullName" placeholder="vd: Nguyễn Hoàng Long" required />
+        </div>
+        <div class="form-group">
+          <label>Địa chỉ Email nhận vé</label>
+          <input type="email" name="email" id="bookModalEmail" placeholder="vd: long@gmail.com" required />
+        </div>
+        <div class="form-group">
+          <label>Số điện thoại</label>
+          <input type="tel" name="phone" placeholder="vd: 0901234567" />
+        </div>
+        <div class="form-group">
+          <label>Chọn hạng vé</label>
+          <select name="ticketType" id="bookModalTicketSelect" required>
+            <option value="VIP">Vé VIP (Chỗ ngồi ưu tiên + Lounge) - 2.390.000 đ</option>
+            <option value="Professional">Vé Professional (Hội thảo + Workshop) - 1.490.000 đ</option>
+            <option value="Standard">Vé Standard (Tiêu chuẩn) - 790.000 đ</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Xác nhận đặt vé & Nhận mã QR</button>
       </form>
     </div>
   </div>
 
-  <div id="eventModal" class="modal hidden">
-    <div class="modal-content wide">
+  <!-- Modal Tạo/Sửa sự kiện (Dành cho BTC và Admin) -->
+  <div id="eventModal" class="modal-overlay hidden">
+    <div class="modal-card wide">
       <div class="modal-header">
-        <h3>Tạo sự kiện mới</h3>
-        <button type="button" class="icon-btn" data-close="eventModal">×</button>
+        <h3 id="eventModalTitle">Tạo sự kiện mới</h3>
+        <button type="button" class="close-btn" data-close="eventModal">×</button>
       </div>
-      <form id="eventForm" class="stack-form">
+      <form id="eventForm" class="styled-form">
         <input type="hidden" name="eventId" />
         <div class="form-row two-col">
-          <input type="text" name="maSuKien" placeholder="Mã sự kiện" required />
-          <input type="text" name="tenSuKien" placeholder="Tên sự kiện" required />
+          <div class="form-group">
+            <label>Mã sự kiện</label>
+            <input type="text" name="maSuKien" placeholder="vd: EVT-2026-004" required />
+          </div>
+          <div class="form-group">
+            <label>Tên sự kiện</label>
+            <input type="text" name="tenSuKien" placeholder="vd: AI & Robotics Expo 2026" required />
+          </div>
         </div>
-        <textarea name="moTa" rows="3" placeholder="Mô tả sự kiện" required></textarea>
+        <div class="form-group">
+          <label>Mô tả chi tiết</label>
+          <textarea name="moTa" rows="3" placeholder="Giới thiệu nội dung, quy mô sự kiện..." required></textarea>
+        </div>
         <div class="form-row two-col">
-          <input type="text" name="loaiSuKien" placeholder="Loại sự kiện" required />
-          <input type="text" name="diaDiem" placeholder="Địa điểm" required />
+          <div class="form-group">
+            <label>Loại sự kiện</label>
+            <input type="text" name="loaiSuKien" placeholder="CongNghe, DoanhNghiep..." required />
+          </div>
+          <div class="form-group">
+            <label>Địa điểm tổ chức</label>
+            <input type="text" name="diaDiem" placeholder="Tên tòa nhà, trung tâm hội nghị..." required />
+          </div>
         </div>
         <div class="form-row two-col">
-          <input type="datetime-local" name="ngayBatDau" required />
-          <input type="datetime-local" name="ngayKetThuc" required />
+          <div class="form-group">
+            <label>Thời gian bắt đầu</label>
+            <input type="datetime-local" name="ngayBatDau" required />
+          </div>
+          <div class="form-group">
+            <label>Thời gian kết thúc</label>
+            <input type="datetime-local" name="ngayKetThuc" required />
+          </div>
         </div>
         <div class="form-row two-col">
-          <select name="trangThai">
-            <option value="SapDienRa">Sắp diễn ra</option>
-            <option value="DangDienRa">Đang diễn ra</option>
-            <option value="DaKetThuc">Đã kết thúc</option>
-          </select>
-          <input type="url" name="bannerUrl" placeholder="Banner URL" />
+          <div class="form-group">
+            <label>Trạng thái</label>
+            <select name="trangThai">
+              <option value="SapDienRa">Sắp diễn ra</option>
+              <option value="DangDienRa">Đang diễn ra</option>
+              <option value="DaKetThuc">Đã kết thúc</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Ảnh bìa Banner (URL)</label>
+            <input type="url" name="bannerUrl" placeholder="https://..." />
+          </div>
         </div>
-        <button type="submit" class="primary" id="eventSubmitBtn">Lưu sự kiện</button>
+        <button type="submit" class="btn btn-primary btn-block" id="eventSubmitBtn">Lưu sự kiện</button>
       </form>
     </div>
   </div>
 
-  <div class="app-shell">
-    <aside class="sidebar">
-      <div class="brand">AI EventHub</div>
-      <nav>
-        <button class="nav-item active" data-section="dashboard" data-role="QuanTriVien,BanToChuc,NhanVienCheckIn,NguoiThamDu">Dashboard</button>
-        <button class="nav-item" data-section="accounts" data-role="QuanTriVien">Tài khoản</button>
-        <button class="nav-item" data-section="events" data-role="BanToChuc">Sự kiện</button>
-        <button class="nav-item" data-section="tickets" data-role="QuanTriVien,BanToChuc,NhanVienCheckIn,NguoiThamDu">Vé & Đăng ký</button>
-        <button class="nav-item" data-section="checkin" data-role="QuanTriVien,BanToChuc,NhanVienCheckIn">Check-in</button>
-        <button class="nav-item" data-section="ai" data-role="QuanTriVien,BanToChuc,NguoiThamDu">AI Studio</button>
-        <button class="nav-item" data-section="reports" data-role="QuanTriVien,BanToChuc">Báo cáo</button>
-      </nav>
-      <div class="user-panel">
-        <span id="currentUser">Khách</span>
-        <button id="loginBtn" class="secondary">Đăng nhập</button>
+  <!-- Modal Lập báo cáo doanh thu mới (Dành cho Kế toán & Admin) -->
+  <div id="reportModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Lập Báo Cáo Doanh Thu</h3>
+        <button type="button" class="close-btn" data-close="reportModal">×</button>
       </div>
-    </aside>
-
-    <main class="content">
-      <section id="dashboard" class="screen active" data-role="QuanTriVien,BanToChuc,NhanVienCheckIn,NguoiThamDu">
-        <div class="header-row">
-          <h1>Dashboard</h1>
-          <button class="primary" id="createEventBtn">+ Tạo sự kiện</button>
+      <form id="createReportForm" class="styled-form">
+        <div class="form-group">
+          <label>Chọn sự kiện</label>
+          <select name="suKienId" id="reportModalEventSelect" required></select>
         </div>
-
-        <div class="stats-grid">
-          <div class="stat-card"><span>Tổng sự kiện</span><strong id="statEvents">0</strong></div>
-          <div class="stat-card"><span>Người tham dự</span><strong id="statGuests">0</strong></div>
-          <div class="stat-card"><span>Doanh thu</span><strong id="statRevenue">0</strong></div>
-          <div class="stat-card"><span>AI đánh giá</span><strong id="statAi">92%</strong></div>
-        </div>
-
-        <div class="panel-grid two-col">
-          <div class="panel">
-            <h3>Sự kiện sắp tới</h3>
-            <ul id="upcomingEvents" class="list"></ul>
+        <div class="form-row two-col">
+          <div class="form-group">
+            <label>Tổng doanh thu (VNĐ)</label>
+            <input type="number" name="tongDoanhThu" placeholder="vd: 500000000" min="0" required />
           </div>
-          <div class="panel">
-            <h3>AI Summary</h3>
-            <div id="aiSummary" class="ai-box"></div>
+          <div class="form-group">
+            <label>Số vé đã bán</label>
+            <input type="number" name="soVeBan" placeholder="vd: 250" min="0" required />
           </div>
         </div>
-
-        <div class="panel-grid two-col" style="margin-top: 20px;">
-          <div class="panel">
-            <h3>Quản lý phiên nội dung</h3>
-            <form id="sessionForm" class="stack-form">
-              <input type="text" name="maPhien" placeholder="Mã phiên" required />
-              <input type="text" name="tenPhien" placeholder="Tên phiên" required />
-              <input type="datetime-local" name="ngayGio" required />
-              <input type="text" name="phong" placeholder="Phòng" />
-              <button type="submit" class="primary">Thêm phiên</button>
-            </form>
-          </div>
-          <div class="panel">
-            <h3>Quản lý diễn giả</h3>
-            <form id="speakerForm" class="stack-form">
-              <input type="text" name="maDienGia" placeholder="Mã diễn giả" required />
-              <input type="text" name="tenDienGia" placeholder="Tên diễn giả" required />
-              <input type="text" name="chuyenNganh" placeholder="Chuyên ngành" />
-              <button type="submit" class="primary">Thêm diễn giả</button>
-            </form>
-          </div>
+        <div class="form-group">
+          <label>Ghi chú quyết toán</label>
+          <textarea name="ghiChu" rows="3" placeholder="Đã đối soát với ngân hàng..."></textarea>
         </div>
-      </section>
-
-      <section id="accounts" class="screen" data-role="QuanTriVien">
-        <div class="header-row">
-          <h1>Quản lý tài khoản</h1>
-        </div>
-        <div class="panel-grid two-col">
-          <div class="panel">
-            <h3>Tạo tài khoản mới</h3>
-            <form id="accountForm" class="stack-form">
-              <input type="text" name="tenDangNhap" placeholder="Tên đăng nhập" required />
-              <input type="email" name="email" placeholder="Email" required />
-              <input type="password" name="matKhau" placeholder="Mật khẩu" required />
-              <input type="text" name="hoTen" placeholder="Họ tên" required />
-              <select name="vaiTro">
-                <option value="QuanTriVien">Quản trị viên</option>
-                <option value="BanToChuc">Ban tổ chức</option>
-                <option value="NhanVienCheckIn">Nhân viên check-in</option>
-                <option value="NguoiThamDu">Người tham dự</option>
-              </select>
-              <button type="submit" class="primary">Tạo tài khoản</button>
-            </form>
-          </div>
-          <div class="panel">
-            <h3>Danh sách tài khoản</h3>
-            <div id="accountList" class="list"></div>
-          </div>
-        </div>
-      </section>
-
-      <section id="events" class="screen" data-role="BanToChuc">
-        <div class="header-row">
-          <h1>Quản lý sự kiện</h1>
-        </div>
-        <div id="eventList" class="card-list"></div>
-      </section>
-
-      <section id="tickets" class="screen" data-role="QuanTriVien,BanToChuc,NhanVienCheckIn,NguoiThamDu">
-        <div class="header-row">
-          <h1>Vé & Đăng ký</h1>
-        </div>
-        <div class="form-card">
-          <h3>Đăng ký sự kiện</h3>
-          <form id="registrationForm">
-            <input type="text" name="fullName" placeholder="Họ tên" required />
-            <input type="email" name="email" placeholder="Email" required />
-            <input type="tel" name="phone" placeholder="Số điện thoại" />
-            <select name="eventId">
-              <option value="1">AI Summit 2025</option>
-            </select>
-            <select name="ticketType">
-              <option value="VIP">VIP</option>
-              <option value="Professional">Professional</option>
-            </select>
-            <button class="primary" type="submit">Đăng ký</button>
-          </form>
-        </div>
-
-        <div class="form-card" style="margin-top: 20px;">
-          <h3>Vé đã đặt & QR check-in</h3>
-          <div id="registeredTicketsList" class="card-list"></div>
-        </div>
-
-        <div class="form-card" style="margin-top: 20px;">
-          <h3>Quản lý hạng vé</h3>
-          <form id="ticketForm" class="stack-form">
-            <input type="text" name="maHangVe" placeholder="Mã hạng vé" required />
-            <input type="text" name="tenHangVe" placeholder="Tên hạng vé" required />
-            <div class="form-row two-col">
-              <input type="number" name="gia" placeholder="Giá vé" required />
-              <input type="number" name="soLuong" placeholder="Số lượng" required />
-            </div>
-            <select name="suKienId">
-              <option value="1">AI Summit 2025</option>
-            </select>
-            <button class="primary" type="submit">Thêm hạng vé</button>
-          </form>
-        </div>
-      </section>
-
-      <section id="checkin" class="screen" data-role="QuanTriVien,BanToChuc,NhanVienCheckIn">
-        <div class="header-row">
-          <h1>Check-in</h1>
-        </div>
-        <div class="form-card">
-          <h3>Quét mã / nhập mã vé</h3>
-          <input id="checkinCode" type="text" placeholder="Nhập mã QR hoặc mã vé" />
-          <button class="primary" id="checkInBtn">Check-in</button>
-          <div id="checkinResult" class="result-box"></div>
-        </div>
-      </section>
-
-      <section id="ai" class="screen" data-role="QuanTriVien,BanToChuc,NguoiThamDu">
-        <div class="header-row">
-          <h1>AI Studio</h1>
-        </div>
-        <div class="panel-grid two-col">
-          <div class="panel">
-            <h3>AI Sinh thông báo</h3>
-            <textarea id="notificationInput" rows="5" placeholder="Nhập nội dung chính...">Chúng tôi rất mong được gặp bạn tại sự kiện sắp diễn ra.</textarea>
-            <button class="primary" id="generateNotificationBtn">Tạo thông báo</button>
-            <div id="notificationOutput" class="result-box"></div>
-          </div>
-          <div class="panel">
-            <h3>AI Chatbot</h3>
-            <input id="chatQuestion" type="text" placeholder="Hỏi về sự kiện, lịch trình, FAQ..." />
-            <button class="primary" id="chatBtn">Gửi câu hỏi</button>
-            <div id="chatOutput" class="result-box"></div>
-          </div>
-        </div>
-      </section>
-
-      <section id="reports" class="screen" data-role="QuanTriVien,BanToChuc">
-        <div class="header-row">
-          <h1>Báo cáo doanh thu</h1>
-        </div>
-        <div class="panel-grid two-col">
-          <div class="panel">
-            <h3>Tổng quan</h3>
-            <div id="reportSummary" class="result-box"></div>
-          </div>
-          <div class="panel">
-            <h3>Chi tiết doanh thu theo sự kiện</h3>
-            <div id="reportList" class="list"></div>
-          </div>
-        </div>
-      </section>
-    </main>
+        <button type="submit" class="btn btn-primary btn-block">Lưu báo cáo tài chính</button>
+      </form>
+    </div>
   </div>
 
-  <div id="chatWidget" class="chat-widget">
+  <!-- ================= FLOATING AI ASSISTANT WIDGET ================= -->
+  <div id="chatWidget" class="floating-chat-widget minimized">
     <div class="chat-header" id="chatDragHandle">
-      <span>AI Chatbot</span>
+      <div class="chat-title">
+        <span class="chat-dot"></span>
+        <span>AI Assistant 24/7</span>
+      </div>
       <div class="chat-controls">
-        <button class="mini-btn" id="chatMinimizeBtn" type="button">−</button>
-        <button class="mini-btn" id="chatExpandBtn" type="button">□</button>
+        <button class="mini-btn" id="chatMinimizeBtn" title="Thu nhỏ/Mở rộng">−</button>
       </div>
     </div>
     <div id="chatMessages" class="chat-messages">
-      <div class="msg bot">Xin chào! Tôi có thể hỗ trợ bạn về sự kiện, lịch trình và FAQ.</div>
+      <div class="msg bot">Chào bạn! Tôi có thể hỗ trợ giải đáp về sự kiện, diễn giả, lịch trình và quy định check-in.</div>
     </div>
     <div class="chat-input-row">
-      <input id="chatWidgetInput" type="text" placeholder="Nhập câu hỏi..." />
+      <input id="chatWidgetInput" type="text" placeholder="Nhập câu hỏi cho AI..." />
       <button id="chatWidgetBtn">Gửi</button>
     </div>
-    <div class="resize-handle" id="chatResizeHandle" aria-label="Resize chatbot"></div>
   </div>
 
   <script src="/script.js"></script>

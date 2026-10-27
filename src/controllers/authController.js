@@ -66,6 +66,11 @@ exports.register = async (req, res) => {
     return res.status(400).json({ message: 'Thiếu thông tin bắt buộc' });
   }
 
+  const validRoles = ['QuanTriVien', 'BanToChuc', 'NhanVienCheckIn', 'NguoiThamDu', 'KeToan'];
+  if (!validRoles.includes(vaiTro)) {
+    return res.status(400).json({ message: 'Vai trò không hợp lệ' });
+  }
+
   const matKhauHash = await bcrypt.hash(matKhau, 10);
   db.run(
     `INSERT INTO TaiKhoan (tenDangNhap, email, matKhauHash, vaiTro, hoTen, trangThai) VALUES (?, ?, ?, ?, ?, 'HoatDong')`,
@@ -104,7 +109,7 @@ exports.createAccount = async (req, res) => {
     return res.status(400).json({ message: 'Thiếu thông tin bắt buộc cho tài khoản' });
   }
 
-  const validRoles = ['QuanTriVien', 'BanToChuc', 'NhanVienCheckIn', 'NguoiThamDu'];
+  const validRoles = ['QuanTriVien', 'BanToChuc', 'NhanVienCheckIn', 'NguoiThamDu', 'KeToan'];
   if (!validRoles.includes(vaiTro)) {
     return res.status(400).json({ message: 'Vai trò không hợp lệ' });
   }
@@ -128,7 +133,7 @@ exports.updateAccountRole = (req, res) => {
   const { id } = req.params;
   const { vaiTro, trangThai } = req.body;
 
-  const validRoles = ['QuanTriVien', 'BanToChuc', 'NhanVienCheckIn', 'NguoiThamDu'];
+  const validRoles = ['QuanTriVien', 'BanToChuc', 'NhanVienCheckIn', 'NguoiThamDu', 'KeToan'];
   if (!vaiTro || !validRoles.includes(vaiTro)) {
     return res.status(400).json({ message: 'Vai trò không hợp lệ' });
   }
@@ -138,6 +143,7 @@ exports.updateAccountRole = (req, res) => {
     [vaiTro, trangThai || 'HoatDong', id],
     function (err) {
       if (err) return res.status(400).json({ message: 'Không thể cập nhật quyền tài khoản' });
+      if (this.changes === 0) return res.status(404).json({ message: 'Không tìm thấy tài khoản' });
       return res.json({ message: 'Cập nhật quyền tài khoản thành công' });
     }
   );
