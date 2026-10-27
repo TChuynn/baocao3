@@ -35,7 +35,24 @@ exports.createEvent = (req, res) => {
     [maSuKien, tenSuKien, moTa, loaiSuKien, ngayBatDau, ngayKetThuc, diaDiem, trangThai || 'SapDienRa', bannerUrl || ''],
     function (err) {
       if (err) return res.status(400).json({ message: 'Không thể tạo sự kiện', error: err.message });
-      return res.status(201).json({ id: this.lastID, message: 'Tạo sự kiện thành công' });
+      const eventId = this.lastID;
+
+      // Tự động khởi tạo 3 hạng vé cơ bản cho sự kiện mới
+      const defaultTiers = [
+        [`TICKET-VIP-${eventId}`, 'VIP', 2390000, 100, eventId, 'Chỗ ngồi ưu tiên + Lounge networking', 'ConVe'],
+        [`TICKET-PRO-${eventId}`, 'Professional', 1490000, 200, eventId, 'Toàn quyền tham dự hội nghị và workshop', 'ConVe'],
+        [`TICKET-STD-${eventId}`, 'Standard', 790000, 300, eventId, 'Vé tiêu chuẩn tham dự phiên toàn thể', 'ConVe']
+      ];
+
+      defaultTiers.forEach(t => {
+        db.run(
+          `INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          t
+        );
+      });
+
+      return res.status(201).json({ id: eventId, message: 'Tạo sự kiện thành công' });
     }
   );
 };

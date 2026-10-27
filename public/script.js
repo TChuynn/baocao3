@@ -342,6 +342,29 @@ function setupSidebarNav() {
         screens.forEach(screen => {
           screen.classList.toggle('active', screen.id === targetId);
         });
+
+        // Tự động tải mới dữ liệu theo tab người dùng vừa chọn
+        if (targetId === 'attendee-tickets') {
+          loadAttendeeTickets();
+        } else if (targetId === 'attendee-explore') {
+          loadAttendeeEvents();
+        } else if (targetId === 'attendee-feedback') {
+          loadAttendeeFeedbacks();
+        } else if (targetId === 'admin-accounts') {
+          loadAdminAccounts();
+        } else if (targetId === 'admin-events') {
+          loadAdminEvents();
+        } else if (targetId === 'btc-events') {
+          loadBtcEvents();
+        } else if (targetId === 'btc-tickets') {
+          loadBtcTickets();
+        } else if (targetId === 'staff-list') {
+          loadStaffCheckinList();
+        } else if (targetId === 'ketoan-transactions') {
+          loadKetoanTransactions();
+        } else if (targetId === 'ketoan-reports') {
+          loadKetoanReports();
+        }
       });
     });
   });
@@ -912,7 +935,12 @@ async function loadAttendeeTickets(email = null) {
   if (!container) return;
 
   const user = state.currentUser || JSON.parse(localStorage.getItem('event_user') || 'null');
-  const targetEmail = email || (user ? user.email : 'chuyen121106@gmail.com');
+  const filterInput = document.getElementById('attendeeEmailFilter');
+  const targetEmail = (email || (filterInput ? filterInput.value.trim() : '') || (user ? user.email : '') || 'chuyen121106@gmail.com').trim();
+
+  if (filterInput && targetEmail) {
+    filterInput.value = targetEmail;
+  }
 
   try {
     const myTickets = await api.get(`/api/my-tickets?email=${encodeURIComponent(targetEmail)}`);
@@ -922,7 +950,7 @@ async function loadAttendeeTickets(email = null) {
         <div class="ticket-pass">
           <div class="ticket-header">
             <div>
-              <span class="badge badge-accent">${tk.tenHangVe} PASS</span>
+              <span class="badge badge-accent">${tk.tenHangVe || 'Standard'} PASS</span>
               <h3 style="font-size: 1.15rem; margin-top: 4px;">${tk.tenSuKien}</h3>
             </div>
             <span class="ticket-status-badge ${isChecked ? 'checked' : 'valid'}">
@@ -936,7 +964,7 @@ async function loadAttendeeTickets(email = null) {
             </div>
             <small class="text-muted">Xuất trình mã này tại cổng tiếp đón</small>
             <div style="margin-top: 14px; font-size: 0.88rem; color: var(--text-secondary);">
-              📍 ${tk.diaDiem}<br>
+              📍 ${tk.diaDiem || 'Địa điểm sự kiện'}<br>
               ⏱️ ${formatDate(tk.ngayBatDau)}
             </div>
           </div>
@@ -971,7 +999,7 @@ async function loadAttendeeFeedbacks() {
   } catch (e) {}
 }
 
-function openBookTicketModal(eventId, eventName) {
+async function openBookTicketModal(eventId, eventName) {
   document.getElementById('bookModalEventId').value = eventId;
   document.getElementById('bookModalEventTitle').textContent = `Đăng ký vé: ${eventName}`;
   const user = state.currentUser || JSON.parse(localStorage.getItem('event_user') || 'null');
@@ -979,6 +1007,32 @@ function openBookTicketModal(eventId, eventName) {
     document.getElementById('bookModalFullName').value = user.hoTen || '';
     document.getElementById('bookModalEmail').value = user.email || '';
   }
+
+  // Nạp danh sách hạng vé theo sự kiện vào dropdown
+  const select = document.getElementById('bookModalTicketSelect');
+  if (select) {
+    try {
+      const tiers = await api.get(`/api/tickets?eventId=${eventId}`);
+      if (tiers && tiers.length > 0) {
+        select.innerHTML = tiers.map(t =>
+          `<option value="${t.tenHangVe}">Vé ${t.tenHangVe} - ${formatCurrency(t.gia)}</option>`
+        ).join('');
+      } else {
+        select.innerHTML = `
+          <option value="VIP">Vé VIP (Chỗ ngồi ưu tiên + Lounge) - 2.390.000 đ</option>
+          <option value="Professional">Vé Professional (Hội thảo + Workshop) - 1.490.000 đ</option>
+          <option value="Standard">Vé Standard (Tiêu chuẩn) - 790.000 đ</option>
+        `;
+      }
+    } catch (e) {
+      select.innerHTML = `
+        <option value="VIP">Vé VIP (Chỗ ngồi ưu tiên + Lounge) - 2.390.000 đ</option>
+        <option value="Professional">Vé Professional (Hội thảo + Workshop) - 1.490.000 đ</option>
+        <option value="Standard">Vé Standard (Tiêu chuẩn) - 790.000 đ</option>
+      `;
+    }
+  }
+
   openModal('bookTicketModal');
 }
 
@@ -1472,11 +1526,18 @@ function setupEventListeners() {
         phone: form.get('phone'),
         ticketType: form.get('ticketType')
       });
-      alert(`Đăng ký thành công! Mã QR của bạn: ${res.qrCode || 'Đã sinh vé'}`);
+      alert(`Đăng ký thành công!\nMã vé: ${res.maDangKy || 'REG'}\nMã QR: ${res.qrCode || 'Đã sinh vé'}\nHạng vé: ${res.ticketType || 'VIP'}`);
       closeModal('bookTicketModal');
       formEl?.reset();
 
-      document.querySelector('[data-target="attendee-tickets"]')?.click();
+      const filterInput = document.getElementById('attendeeEmailFilter');
+      if (filterInput) filterInput.value = email;
+
+      const user = state.currentUser || JSON.parse(localStorage.getItem('event_user') || 'null');
+      if (user && user.vaiTro === 'NguoiThamDu') {
+        const ticketNavBtn = document.querySelector('#view-attendee [data-target="attendee-tickets"]');
+        if (ticketNavBtn) ticketNavBtn.click();
+      }
       await loadAttendeeTickets(email);
     } catch (err) {
       alert(err.message || 'Đặt vé thất bại');

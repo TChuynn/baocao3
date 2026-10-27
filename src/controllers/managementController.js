@@ -103,48 +103,116 @@ exports.registerGuest = (req, res) => {
     return res.status(400).json({ message: 'Thiếu thông tin đăng ký' });
   }
 
+  const cleanEmail = email.trim();
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
+  if (!emailRegex.test(cleanEmail)) {
     return res.status(400).json({ message: 'Định dạng email không hợp lệ' });
   }
 
-  db.get('SELECT id FROM SuKien WHERE id = ?', [eventId], (eventErr, event) => {
-    if (eventErr) return res.status(500).json({ message: 'Database error' });
+  const cleanName = fullName.trim();
+  const cleanPhone = (phone || '').trim();
+  const targetType = (ticketType || 'Standard').trim();
+
+  // 1. Kiểm tra sự kiện có tồn tại không
+  db.get('SELECT id, tenSuKien FROM SuKien WHERE id = ?', [Number(eventId)], (eventErr, event) => {
+    if (eventErr) return res.status(500).json({ message: 'Database error', error: eventErr.message });
     if (!event) return res.status(400).json({ message: 'Sự kiện không tồn tại' });
 
-    db.get('SELECT id FROM NguoiThamDu WHERE email = ?', [email], (userErr, existingUser) => {
-    if (userErr) return res.status(500).json({ message: 'Database error' });
-
-    const createUser = () => {
-      db.run(
-        `INSERT INTO NguoiThamDu (maNguoiThamDu, hoTen, email, soDienThoai, trangThai)
-         VALUES (?, ?, ?, ?, 'HoatDong')`,
-        [`USER-${Date.now()}`, fullName, email, phone || ''],
-        function (err) {
-          if (err) return res.status(400).json({ message: 'Không thể tạo người tham dự', error: err.message });
-          const guestId = this.lastID;
-          const qrCode = `QR-${eventId}-${guestId}`;
-          const ticketPrice = ticketType === 'VIP' ? 2390000 : 1490000;
-
-          db.run(
-            `INSERT INTO DangKy (maDangKy, nguoiThamDuId, suKienId, hangVeId, soLuong, tongTien, trangThai, qrCode)
-             VALUES (?, ?, ?, (SELECT id FROM HangVe WHERE suKienId = ? AND tenHangVe = ? LIMIT 1), 1, ?, 'DaXacNhan', ?)`,
-            [`REG-${Date.now()}`, guestId, Number(eventId), Number(eventId), ticketType, ticketPrice, qrCode],
-            function (regErr) {
-              if (regErr) return res.status(400).json({ message: 'Không thể lưu đăng ký', error: regErr.message });
-              return res.status(201).json({ message: 'Đăng ký thành công', qrCode, ticketType, guestId });
-            }
-          );
+    // 2. Lấy hoặc tạo người tham dự theo Email
+    const getOrCreateGuest = (cb) => {
+      db.get('SELECT id, hoTen, email, soDienThoai FROM NguoiThamDu WHERE LOWER(email) = LOWER(?)', [cleanEmail], (userErr, existingUser) => {
+        if (userErr) return cb(userErr);
+        if (existingUser) {
+          if (cleanPhone && !existingUser.soDienThoai) {
+            db.run('UPDATE NguoiThamDu SET soDienThoai = ? WHERE id = ?', [cleanPhone, existingUser.id]);
+          }
+          return cb(null, existingUser.id);
         }
-      );
+
+        const maNguoiThamDu = `USER-${Date.now()}`;
+        db.run(
+          `INSERT INTO NguoiThamDu (maNguoiThamDu, hoTen, email, soDienThoai, trangThai)
+           VALUES (?, ?, ?, ?, 'HoatDong')`,
+          [maNguoiThamDu, cleanName, cleanEmail, cleanPhone],
+          function (insErr) {
+            if (insErr) return cb(insErr);
+            return cb(null, this.lastID);
+          }
+        );
+      });
     };
 
-    if (existingUser) {
-      const qrCode = `QR-${eventId}-${existingUser.id}`;
-      return res.status(200).json({ message: 'Bạn đã đăng ký trước đó', qrCode, ticketType: ticketType || 'Professional' });
-    }
+    // 3. Lấy hoặc tự động khởi tạo hạng vé cho sự kiện nếu chưa có
+    const getOrCreateTicketTier = (cb) => {
+      db.all('SELECT * FROM HangVe WHERE suKienId = ? ORDER BY gia DESC', [Number(eventId)], (tierErr, tiers) => {
+        if (tierErr) return cb(tierErr);
 
-    createUser();
+        if (tiers && tiers.length > 0) {
+          let matched = tiers.find(t => t.tenHangVe.toLowerCase() === targetType.toLowerCase());
+          if (!matched) {
+            matched = tiers.find(t => t.tenHangVe.toLowerCase().includes(targetType.toLowerCase()) || targetType.toLowerCase().includes(t.tenHangVe.toLowerCase()));
+          }
+          if (!matched) matched = tiers[0];
+          return cb(null, matched);
+        }
+
+        // Tự động sinh các hạng vé chuẩn cho sự kiện
+        const defaultTiers = [
+          [`TICKET-VIP-${eventId}`, 'VIP', 2390000, 100, Number(eventId), 'Chỗ ngồi ưu tiên + Lounge networking', 'ConVe'],
+          [`TICKET-PRO-${eventId}`, 'Professional', 1490000, 200, Number(eventId), 'Toàn quyền tham dự hội nghị và workshop', 'ConVe'],
+          [`TICKET-STD-${eventId}`, 'Standard', 790000, 300, Number(eventId), 'Vé tiêu chuẩn tham dự phiên toàn thể', 'ConVe']
+        ];
+
+        let insertedCount = 0;
+        let createdTiers = [];
+        defaultTiers.forEach((row) => {
+          db.run(
+            `INSERT INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            row,
+            function (insertErr) {
+              insertedCount++;
+              if (!insertErr) {
+                createdTiers.push({ id: this.lastID, tenHangVe: row[1], gia: row[2] });
+              }
+              if (insertedCount === defaultTiers.length) {
+                let chosen = createdTiers.find(t => t.tenHangVe.toLowerCase() === targetType.toLowerCase()) || createdTiers[0];
+                return cb(null, chosen);
+              }
+            }
+          );
+        });
+      });
+    };
+
+    getOrCreateGuest((guestErr, guestId) => {
+      if (guestErr) return res.status(400).json({ message: 'Không thể tạo người tham dự', error: guestErr.message });
+
+      getOrCreateTicketTier((tierErr, tier) => {
+        if (tierErr || !tier) return res.status(400).json({ message: 'Không thể xác định hạng vé', error: tierErr?.message });
+
+        const ticketPrice = Number(tier.gia || (targetType === 'VIP' ? 2390000 : (targetType === 'Standard' ? 790000 : 1490000)));
+        const uniqueSuffix = Date.now().toString().slice(-4) + Math.floor(Math.random() * 100);
+        const qrCode = `QR-${eventId}-${guestId}-${uniqueSuffix}`;
+        const maDangKy = `REG-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+        db.run(
+          `INSERT INTO DangKy (maDangKy, nguoiThamDuId, suKienId, hangVeId, soLuong, tongTien, trangThai, qrCode)
+           VALUES (?, ?, ?, ?, 1, ?, 'DaXacNhan', ?)`,
+          [maDangKy, guestId, Number(eventId), tier.id, ticketPrice, qrCode],
+          function (regErr) {
+            if (regErr) return res.status(400).json({ message: 'Không thể lưu đăng ký', error: regErr.message });
+            return res.status(201).json({
+              message: 'Đăng ký thành công',
+              maDangKy,
+              qrCode,
+              ticketType: tier.tenHangVe,
+              guestId,
+              ticketId: this.lastID
+            });
+          }
+        );
+      });
     });
   });
 };
@@ -196,11 +264,13 @@ exports.checkinTicket = (req, res) => {
   const cleanCode = maVe.trim();
 
   db.get(`
-    SELECT d.*, n.hoTen, n.email, n.soDienThoai, s.tenSuKien, h.tenHangVe
+    SELECT d.*, n.hoTen, n.email, n.soDienThoai, 
+           COALESCE(s.tenSuKien, 'Sự kiện') as tenSuKien, 
+           COALESCE(h.tenHangVe, 'Tiêu chuẩn') as tenHangVe
     FROM DangKy d
     JOIN NguoiThamDu n ON n.id = d.nguoiThamDuId
-    JOIN SuKien s ON s.id = d.suKienId
-    JOIN HangVe h ON h.id = d.hangVeId
+    LEFT JOIN SuKien s ON s.id = d.suKienId
+    LEFT JOIN HangVe h ON h.id = d.hangVeId
     WHERE d.qrCode = ? OR d.maDangKy = ?
   `, [cleanCode, cleanCode], (err, row) => {
     if (err) return res.status(500).json({ message: 'Database error' });
@@ -328,7 +398,7 @@ exports.getFinancialOverview = (req, res) => {
 };
 
 exports.getMyTickets = (req, res) => {
-  const email = req.query.email || (req.user ? req.user.email : null);
+  const email = (req.query.email || (req.user ? req.user.email : null) || '').trim();
   if (!email) {
     return res.status(400).json({ message: 'Vui lòng cung cấp email người tham dự' });
   }
@@ -336,15 +406,15 @@ exports.getMyTickets = (req, res) => {
   db.all(`
     SELECT d.id, d.maDangKy, d.qrCode, d.tongTien, d.trangThai, d.thoiGianCheckIn, d.createdAt,
            s.tenSuKien, s.ngayBatDau, s.ngayKetThuc, s.diaDiem, s.bannerUrl,
-           h.tenHangVe, h.gia
+           COALESCE(h.tenHangVe, 'Tiêu chuẩn') as tenHangVe, COALESCE(h.gia, d.tongTien) as gia
     FROM DangKy d
     JOIN NguoiThamDu n ON n.id = d.nguoiThamDuId
-    JOIN SuKien s ON s.id = d.suKienId
-    JOIN HangVe h ON h.id = d.hangVeId
-    WHERE n.email = ?
+    LEFT JOIN SuKien s ON s.id = d.suKienId
+    LEFT JOIN HangVe h ON h.id = d.hangVeId
+    WHERE LOWER(n.email) = LOWER(?)
     ORDER BY d.createdAt DESC
   `, [email], (err, rows) => {
-    if (err) return res.status(500).json({ message: 'Database error' });
+    if (err) return res.status(500).json({ message: 'Database error', error: err.message });
     return res.json(rows);
   });
 };

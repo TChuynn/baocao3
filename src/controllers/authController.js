@@ -71,14 +71,32 @@ exports.register = async (req, res) => {
     return res.status(400).json({ message: 'Vai trò không hợp lệ' });
   }
 
+  const cleanEmail = email.trim();
+  const cleanUsername = tenDangNhap.trim();
+  const cleanName = hoTen.trim();
+
   const matKhauHash = await bcrypt.hash(matKhau, 10);
   db.run(
     `INSERT INTO TaiKhoan (tenDangNhap, email, matKhauHash, vaiTro, hoTen, trangThai) VALUES (?, ?, ?, ?, ?, 'HoatDong')`,
-    [tenDangNhap, email, matKhauHash, vaiTro, hoTen],
+    [cleanUsername, cleanEmail, matKhauHash, vaiTro, cleanName],
     function (err) {
       if (err) {
         return res.status(400).json({ message: 'Tên đăng nhập hoặc email đã tồn tại' });
       }
+
+      // Đảm bảo tạo sẵn profile NguoiThamDu nếu tài khoản là Người tham dự
+      if (vaiTro === 'NguoiThamDu') {
+        db.get('SELECT id FROM NguoiThamDu WHERE LOWER(email) = LOWER(?)', [cleanEmail], (userErr, row) => {
+          if (!userErr && !row) {
+            db.run(
+              `INSERT INTO NguoiThamDu (maNguoiThamDu, hoTen, email, soDienThoai, trangThai)
+               VALUES (?, ?, ?, '', 'HoatDong')`,
+              [`USER-${Date.now()}`, cleanName, cleanEmail]
+            );
+          }
+        });
+      }
+
       return res.status(201).json({ message: 'Đăng ký thành công' });
     }
   );

@@ -108,9 +108,17 @@ async function initSeed() {
     await runQuery(`INSERT OR IGNORE INTO PhienNoiDung_DienGia (phienNoiDungId, dienGiaId) VALUES (2, 2)`);
     await runQuery(`INSERT OR IGNORE INTO PhienNoiDung_DienGia (phienNoiDungId, dienGiaId) VALUES (3, 3)`);
 
-    await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-VIP', 'VIP', 2390000, 120, 1, 'Có chỗ ngồi ưu tiên, quà tặng và networking lounge.', 'ConVe')`);
-    await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-PRO', 'Professional', 1490000, 200, 1, 'Truy cập toàn bộ hội nghị và khu workshop.', 'ConVe')`);
-    await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-STD', 'Standard', 790000, 300, 1, 'Vé tiêu chuẩn tham dự phiên họp toàn thể.', 'ConVe')`);
+    await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-VIP-1', 'VIP', 2390000, 120, 1, 'Có chỗ ngồi ưu tiên, quà tặng và networking lounge.', 'ConVe')`);
+    await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-PRO-1', 'Professional', 1490000, 200, 1, 'Truy cập toàn bộ hội nghị và khu workshop.', 'ConVe')`);
+    await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-STD-1', 'Standard', 790000, 300, 1, 'Vé tiêu chuẩn tham dự phiên họp toàn thể.', 'ConVe')`);
+
+    await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-VIP-2', 'VIP', 1990000, 80, 2, 'Vé VIP kết nối quỹ đầu tư và Founder dinner.', 'ConVe')`);
+    await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-PRO-2', 'Professional', 1190000, 150, 2, 'Tham gia toàn bộ các sân khấu pitching và gian hàng.', 'ConVe')`);
+    await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-STD-2', 'Standard', 590000, 250, 2, 'Vé tiêu chuẩn tham quan ngày hội khởi nghiệp.', 'ConVe')`);
+
+    await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-VIP-3', 'VIP', 2390000, 100, 3, 'Vé VIP chỗ ngồi ưu tiên, networking lounge và tiệc tối.', 'ConVe')`);
+    await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-PRO-3', 'Professional', 1490000, 200, 3, 'Tham gia hội thảo chuyên sâu và lab thực hành Cloud/DevOps.', 'ConVe')`);
+    await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-STD-3', 'Standard', 790000, 350, 3, 'Vé tiêu chuẩn tham dự triển lãm.', 'ConVe')`);
 
     await runQuery(`INSERT OR IGNORE INTO NguoiThamDu (maNguoiThamDu, hoTen, email, soDienThoai, trangThai) VALUES ('USER-001', 'Nguyễn Hoàng Long', 'chuyen121106@gmail.com', '0901234567', 'HoatDong')`);
     await runQuery(`INSERT OR IGNORE INTO NguoiThamDu (maNguoiThamDu, hoTen, email, soDienThoai, trangThai) VALUES ('USER-002', 'Phạm Thị Hạnh', 'hanh@gmail.com', '0912345678', 'HoatDong')`);
