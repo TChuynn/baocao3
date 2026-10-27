@@ -30,11 +30,11 @@ async function initSeed() {
     const attendeePassword = await bcrypt.hash('123456', 10);
 
     const accounts = [
-      ['admin01', 'admin@eventdemo.vn', adminPassword, 'QuanTriVien', 'Nguyễn Văn Admin', 'HoatDong'],
-      ['btc01', 'organizer@eventdemo.vn', organizerPassword, 'BanToChuc', 'Trần Thị Ban Tổ Chức', 'HoatDong'],
-      ['checkin01', 'staff@eventdemo.vn', staffPassword, 'NhanVienCheckIn', 'Lê Văn Check-in', 'HoatDong'],
-      ['ketoan01', 'ketoan@eventdemo.vn', ketoanPassword, 'KeToan', 'Phạm Minh Kế Toán', 'HoatDong'],
-      ['attendee01', 'long@gmail.com', attendeePassword, 'NguoiThamDu', 'Nguyễn Hoàng Long', 'HoatDong'],
+      ['htcdbk11@gmail.com', 'htcdbk11@gmail.com', adminPassword, 'QuanTriVien', 'Nguyễn Văn Admin', 'HoatDong'],
+      ['trieuphuonggiang677@gmail.com', 'trieuphuonggiang677@gmail.com', organizerPassword, 'BanToChuc', 'Trần Thị Ban Tổ Chức', 'HoatDong'],
+      ['dtc245200261@ictu.edu.vn', 'dtc245200261@ictu.edu.vn', staffPassword, 'NhanVienCheckIn', 'Lê Văn Check-in', 'HoatDong'],
+      ['dtc245200075@ictu.edu.vn', 'dtc245200075@ictu.edu.vn', ketoanPassword, 'KeToan', 'Phạm Minh Kế Toán', 'HoatDong'],
+      ['chuyen121106@gmail.com', 'chuyen121106@gmail.com', attendeePassword, 'NguoiThamDu', 'Nguyễn Hoàng Long', 'HoatDong'],
     ];
 
     for (const account of accounts) {
@@ -112,7 +112,7 @@ async function initSeed() {
     await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-PRO', 'Professional', 1490000, 200, 1, 'Truy cập toàn bộ hội nghị và khu workshop.', 'ConVe')`);
     await runQuery(`INSERT OR IGNORE INTO HangVe (maHangVe, tenHangVe, gia, soLuong, suKienId, moTa, trangThai) VALUES ('TICKET-STD', 'Standard', 790000, 300, 1, 'Vé tiêu chuẩn tham dự phiên họp toàn thể.', 'ConVe')`);
 
-    await runQuery(`INSERT OR IGNORE INTO NguoiThamDu (maNguoiThamDu, hoTen, email, soDienThoai, trangThai) VALUES ('USER-001', 'Nguyễn Hoàng Long', 'long@gmail.com', '0901234567', 'HoatDong')`);
+    await runQuery(`INSERT OR IGNORE INTO NguoiThamDu (maNguoiThamDu, hoTen, email, soDienThoai, trangThai) VALUES ('USER-001', 'Nguyễn Hoàng Long', 'chuyen121106@gmail.com', '0901234567', 'HoatDong')`);
     await runQuery(`INSERT OR IGNORE INTO NguoiThamDu (maNguoiThamDu, hoTen, email, soDienThoai, trangThai) VALUES ('USER-002', 'Phạm Thị Hạnh', 'hanh@gmail.com', '0912345678', 'HoatDong')`);
     await runQuery(`INSERT OR IGNORE INTO NguoiThamDu (maNguoiThamDu, hoTen, email, soDienThoai, trangThai) VALUES ('USER-003', 'Trần Văn An', 'an.tran@gmail.com', '0988776655', 'HoatDong')`);
     await runQuery(`INSERT OR IGNORE INTO NguoiThamDu (maNguoiThamDu, hoTen, email, soDienThoai, trangThai) VALUES ('USER-004', 'Lê Quỳnh Mai', 'mai.le@gmail.com', '0933221100', 'HoatDong')`);

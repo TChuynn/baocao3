@@ -912,7 +912,7 @@ async function loadAttendeeTickets(email = null) {
   if (!container) return;
 
   const user = state.currentUser || JSON.parse(localStorage.getItem('event_user') || 'null');
-  const targetEmail = email || (user ? user.email : 'long@gmail.com');
+  const targetEmail = email || (user ? user.email : 'chuyen121106@gmail.com');
 
   try {
     const myTickets = await api.get(`/api/my-tickets?email=${encodeURIComponent(targetEmail)}`);

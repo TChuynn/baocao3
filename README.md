@@ -23,13 +23,13 @@ Mỗi vai trò sở hữu thanh điều hướng, chức năng và giao diện h
 
 ## 👥 Danh Sách 5 Vai Trò & Giao Diện Riêng Biệt
 
-| Vai trò | Tài khoản mặc định | Mật khẩu | Giao diện & Chức năng độc quyền |
+| Vai trò | Email / Tên đăng nhập | Mật khẩu | Giao diện & Chức năng độc quyền |
 |---|---|---|---|
-| 👑 **Quản trị viên** | `admin01` | `123456` | **Admin Portal**: Bảng điều khiển KPI toàn sàn, Quản lý danh sách tài khoản & phân quyền (Admin, BTC, Check-in, Kế toán, Khách), Giám sát và kiểm duyệt toàn bộ sự kiện. |
-| 🎪 **Ban tổ chức** | `btc01` | `123456` | **Organizer Studio**: CRUD Sự kiện, Quản lý các phiên hội thảo/lịch trình, Quản lý diễn giả, Thiết lập các hạng vé (VIP, Standard), AI Studio (Sinh thông báo & Tóm tắt phản hồi AI), Xem phản hồi khách mời. |
-| 🎫 **Nhân viên Check-in** | `checkin01` | `123456` | **Check-in Desk**: Quét mã QR bằng Camera máy tính/điện thoại, Nhập mã thủ công, Thẻ kết quả check-in âm thanh (Hợp lệ / Đã dùng / Lỗi), Danh sách khách mời thời gian thực (Lọc Đã check-in / Chưa check-in), Nút 1-chạm Check-in và Hoàn tác. |
-| 💰 **Kế toán** | `ketoan01` | `123456` | **Finance Portal**: Tổng quan doanh thu bán vé, Tỷ trọng doanh thu theo từng sự kiện và hạng vé, Sổ giao dịch đơn đặt vé chi tiết, Lập báo cáo doanh thu mới, Xuất file CSV & In quyết toán. |
-| 👤 **Người tham dự** | `attendee01` | `123456` | **Attendee Hub**: Khám phá sự kiện, Đặt vé tham dự trực tuyến nhận mã QR tức thì, Khu vực "Vé của tôi" (Boarding Pass QR sắc nét), Đánh giá sao & Gửi phản hồi, Trợ lý AI Chatbot hỏi đáp 24/7. |
+| 👑 **Quản trị viên** | `htcdbk11@gmail.com` | `123456` | **Admin Portal**: Bảng điều khiển KPI toàn sàn, Quản lý danh sách tài khoản & phân quyền (Admin, BTC, Check-in, Kế toán, Khách), Giám sát và kiểm duyệt toàn bộ sự kiện. |
+| 🎪 **Ban tổ chức** | `trieuphuonggiang677@gmail.com` | `123456` | **Organizer Studio**: CRUD Sự kiện, Quản lý các phiên hội thảo/lịch trình, Quản lý diễn giả, Thiết lập các hạng vé (VIP, Standard), AI Studio (Sinh thông báo & Tóm tắt phản hồi AI), Xem phản hồi khách mời. |
+| 🎫 **Nhân viên Check-in** | `dtc245200261@ictu.edu.vn` | `123456` | **Check-in Desk**: Quét mã QR bằng Camera máy tính/điện thoại, Nhập mã thủ công, Thẻ kết quả check-in âm thanh (Hợp lệ / Đã dùng / Lỗi), Danh sách khách mời thời gian thực (Lọc Đã check-in / Chưa check-in), Nút 1-chạm Check-in và Hoàn tác. |
+| 💰 **Kế toán** | `dtc245200075@ictu.edu.vn` | `123456` | **Finance Portal**: Tổng quan doanh thu bán vé, Tỷ trọng doanh thu theo từng sự kiện và hạng vé, Sổ giao dịch đơn đặt vé chi tiết, Lập báo cáo doanh thu mới, Xuất file CSV & In quyết toán. |
+| 👤 **Người tham dự** | `chuyen121106@gmail.com` | `123456` | **Attendee Hub**: Khám phá sự kiện, Đặt vé tham dự trực tuyến nhận mã QR tức thì, Khu vực "Vé của tôi" (Boarding Pass QR sắc nét), Đánh giá sao & Gửi phản hồi, Trợ lý AI Chatbot hỏi đáp 24/7. |
 
 > 🔒 **Cơ chế Phân Quyền Doanh Nghiệp (Enterprise Role Authentication)**:
 > Hệ thống hoạt động theo mô hình phân quyền thực tế: Không có thanh chuyển vai trò tự do. Mỗi tài khoản trong cơ sở dữ liệu (`TaiKhoan.vaiTro`) được gắn cố định với một vai trò nghiệp vụ. Khi người dùng nhập tên đăng nhập và mật khẩu, hệ thống tự động xác thực danh tính qua JWT và chỉ mở duy nhất giao diện thuộc thẩm quyền của tài khoản đó. Muốn chuyển sang vai trò khác, người dùng bắt buộc phải đăng xuất và đăng nhập tài khoản của vai trò tương ứng.
