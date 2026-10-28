@@ -1304,10 +1304,30 @@ function setupEventListeners() {
     }
   });
 
-  // Helper to format AI message
+  // Helper to format AI message (supports markdown bold, italic, code blocks, inline code)
   function formatAiMessage(text) {
     if (!text) return '';
-    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Escape HTML first
+    let escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // Handle code blocks: ```lang ... ```
+    escaped = escaped.replace(/```(?:[a-zA-Z0-9_-]+)?\s*\n([\s\S]*?)```/g, (match, code) => {
+      return `<pre><code>${code.trim()}</code></pre>`;
+    });
+
+    // Handle inline code: `code`
+    escaped = escaped.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+    // Handle bold: **text**
+    escaped = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // Handle italic: *text*
+    escaped = escaped.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
+
+    return escaped;
   }
 
   // Landing Page AI Assistant Chatbot

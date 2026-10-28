@@ -11,13 +11,26 @@ const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
 
 /**
  * Call Google Gemini API (Interactions API /v1beta/interactions) using native fetch
+ * Supports both standard prompt input and dedicated system_instruction
  */
-async function callGemini(prompt) {
+async function callGemini(input, systemInstruction = null) {
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 
   if (!apiKey || apiKey === 'your_gemini_api_key_here') {
     throw new Error('GEMINI_API_KEY is not configured');
+  }
+
+  const payload = {
+    model: model,
+    input: input,
+    generation_config: {
+      thinking_level: 'minimal'
+    }
+  };
+
+  if (systemInstruction) {
+    payload.system_instruction = systemInstruction;
   }
 
   const res = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
@@ -26,13 +39,7 @@ async function callGemini(prompt) {
       'Content-Type': 'application/json',
       'x-goog-api-key': apiKey
     },
-    body: JSON.stringify({
-      model: model,
-      input: prompt,
-      generation_config: {
-        thinking_level: 'minimal'
-      }
-    }),
+    body: JSON.stringify(payload),
     signal: AbortSignal.timeout(60000)
   });
 
@@ -59,6 +66,10 @@ async function callGemini(prompt) {
 
   if (!answer && typeof json.output === 'string') {
     answer = json.output;
+  }
+
+  if (!answer && json.output_text) {
+    answer = json.output_text;
   }
 
   return answer || '';
@@ -166,18 +177,18 @@ exports.summarizeFeedback = (req, res) => {
 };
 
 /**
- * Build rich system prompt that empowers Gemini to answer ALL general questions
- * while seamlessly incorporating comprehensive system and event knowledge.
+ * Build rich system instruction that configures Gemini as a complete, unrestricted general AI
+ * while embedding the entire AI EventHub database and features for event-specific queries.
  */
-function buildFullSystemPrompt({ question, events, sessions, speakers, tickets, faqs }) {
+function buildSystemInstruction({ events, sessions, speakers, tickets, faqs }) {
   // Format events list
   const eventsList = events && events.length > 0
-    ? events.map(e => `- ID: ${e.id} | Mã: ${e.maSuKien} | ${e.tenSuKien} (${e.trangThai}): Từ ${e.ngayBatDau} đến ${e.ngayKetThuc} tại ${e.diaDiem}. Mô tả: ${e.moTa || ''}`).join('\n')
+    ? events.map(e => `- ID: ${e.id} | Mã: ${e.maSuKien} | ${e.tenSuKien} (Trạng thái: ${e.trangThai}): Bắt đầu ${e.ngayBatDau} - Kết thúc ${e.ngayKetThuc} tại ${e.diaDiem}. Mô tả: ${e.moTa || ''}`).join('\n')
     : 'Chưa có thông tin sự kiện.';
 
   // Format sessions list
   const sessionsList = sessions && sessions.length > 0
-    ? sessions.map(s => `- [${s.tenSuKien || 'Sự kiện #' + s.suKienId}] Phiên: ${s.tenPhien} (${s.ngayGio}, Phòng/Địa điểm: ${s.diaDiem || ''} ${s.phong || ''}): ${s.moTa || ''}`).join('\n')
+    ? sessions.map(s => `- [${s.tenSuKien || 'Sự kiện #' + s.suKienId}] Phiên: ${s.tenPhien} (${s.ngayGio}, Địa điểm/Phòng: ${s.diaDiem || ''} ${s.phong || ''}): ${s.moTa || ''}`).join('\n')
     : 'Chưa có thông tin phiên.';
 
   // Format speakers list
@@ -192,35 +203,34 @@ function buildFullSystemPrompt({ question, events, sessions, speakers, tickets, 
 
   // Format FAQs
   const faqList = faqs && faqs.length > 0
-    ? faqs.slice(0, 8).map(f => `Q: ${f.cauHoi}\nA: ${f.cauTraLoi}`).join('\n\n')
+    ? faqs.slice(0, 10).map(f => `Q: ${f.cauHoi}\nA: ${f.cauTraLoi}`).join('\n\n')
     : '';
 
-  return `Bạn là Trợ lý Trí tuệ Nhân tạo thông minh, đa năng và thân thiện, được phát triển trên nền tảng Google Gemini và được tích hợp trực tiếp vào hệ thống Quản lý & Tổ chức Sự kiện "AI EventHub".
+  return `Bạn là Google Gemini - mô hình Trí tuệ Nhân tạo thông minh, toàn năng và hiện đại của Google. Hiện tại bạn đang được tích hợp trực tiếp làm Trợ lý AI trên nền tảng Quản lý & Tổ chức Sự kiện "AI EventHub".
 
-PHONG CÁCH VÀ NĂNG LỰC CỦA BẠN:
-1. Bạn có đầy đủ năng lực, kiến thức sâu rộng và sự thông minh như Gemini bình thường:
-   - Bạn có thể trò chuyện tự nhiên, giải thích mọi kiến thức đời sống, khoa học, lịch sử, văn hóa, lập trình (viết code), dịch thuật, sáng tác (thơ, văn, email), giải toán và tư vấn mọi vấn đề.
-   - Bạn KHÔNG bị giới hạn là chỉ được trả lời về sự kiện. Người dùng hỏi bất kỳ chủ đề gì bạn đều có thể trả lời nhiệt tình, thông thái, hữu ích như Gemini tiêu chuẩn.
-2. ĐỒNG THỜI, bạn được tích hợp cơ sở dữ liệu và hiểu biết toàn diện về hệ thống "AI EventHub":
-   - Khi người dùng hỏi về hệ thống, cách sử dụng các tính năng (đăng ký, đăng nhập, quét vé QR, quản lý sự kiện, các vai trò Admin, Ban tổ chức, Nhân viên, Người tham dự...).
-   - Khi người dùng hỏi về bất kỳ sự kiện nào đang có trên hệ thống, lịch trình các phiên họp, danh sách diễn giả, các hạng vé và giá vé...
-   - Bạn hãy sử dụng thông tin chi tiết của hệ thống dưới đây để trả lời thật chính xác, cụ thể và cập nhật nhất.
+NHIỆM VỤ VÀ NĂNG LỰC TOÀN DIỆN CỦA BẠN:
 
-NGUYÊN TẮC TRẢ LỜI:
-- Đối với câu hỏi chung không liên quan đến sự kiện/hệ thống (ví dụ: viết thơ, viết code, hỏi kiến thức khoa học, xã hội, hỏi linh tinh): Hãy trả lời tự nhiên, sâu sắc, hữu ích như Gemini bình thường. Tuyệt đối KHÔNG gượng ép lôi sự kiện vào câu trả lời nếu người dùng không hỏi.
-- Đối với câu hỏi liên quan đến hệ thống hoặc các sự kiện: Dựa vào DỮ LIỆU HỆ THỐNG để trả lời chi tiết và chính xác.
-- Khi người dùng chào hỏi hoặc hỏi bạn là ai: Hãy chào thân thiện, giới thiệu bạn là Trợ lý AI (Gemini) của hệ thống AI EventHub, sẵn sàng giải đáp mọi thắc mắc chung cũng như hỗ trợ thông tin về các sự kiện trên hệ thống.
-- Định dạng: Trả lời bằng tiếng Việt (hoặc ngôn ngữ người dùng yêu cầu), sử dụng markdown rõ ràng, ngắt đoạn tự nhiên, in đậm các ý chính và dùng gạch đầu dòng khi liệt kê.
+1. NĂNG LỰC NHƯ MỘT CON GEMINI BÌNH THƯỜNG (TOÀN DIỆN & KHÔNG GIỚI HẠN):
+- Bạn có toàn bộ trí tuệ, kiến thức sâu rộng và sự linh hoạt của Google Gemini.
+- Bạn có thể trả lời TẤT CẢ các câu hỏi ngoài hệ thống về mọi lĩnh vực:
+  * Khoa học, tự nhiên, công nghệ, vũ trụ, toán học, vật lý, hóa học, sinh học.
+  * Lập trình & CNTT: Viết code (Python, JavaScript, C++, Java, Rust, SQL, HTML/CSS,...), sửa lỗi (debug), tối ưu hóa, kiến trúc phần mềm, thuật toán.
+  * Sáng tạo nội dung: Làm thơ, viết truyện, viết luận, soạn email công việc, dịch thuật đa ngôn ngữ chuẩn xác.
+  * Đời sống & xã hội: Lịch sử, địa lý, văn hóa, ẩm thực, sức khỏe, thể thao, tâm lý, kỹ năng sống, lời khuyên, giải toán.
+  * Trò chuyện tự nhiên, dí dỏm, thảo luận triết học, giải câu đố vui.
+- NGUYÊN TẮC QUAN TRỌNG: TUYỆT ĐỐI KHÔNG từ chối bất kỳ câu hỏi nào ngoài sự kiện. Đối với câu hỏi kiến thức chung, hãy trả lời nhiệt tình, thông thái, chuyên sâu và đầy đủ như Gemini tiêu chuẩn. KHÔNG gượng ép lôi sự kiện hay quảng cáo hệ thống vào câu trả lời nếu người dùng không hỏi đến.
+
+2. TÍCH HỢP CƠ SỞ DỮ LIỆU VÀ KIẾN THỨC HỆ THỐNG "AI EVENTHUB":
+- Khi người dùng hỏi về hệ thống AI EventHub, các sự kiện, lịch trình, diễn giả, giá vé, hoặc cách sử dụng các tính năng: Bạn hãy tra cứu DỮ LIỆU HỆ THỐNG bên dưới để trả lời thật chính xác, chi tiết và cập nhật nhất.
+- Các tính năng hệ thống:
+  * Quản trị viên (Admin): Quản lý tài khoản, phân quyền các vai trò, kích hoạt/khóa tài khoản.
+  * Ban tổ chức (Organizer): Tạo và quản lý sự kiện, lịch trình phiên, diễn giả, phát hành vé, AI Studio tạo thông báo tự động.
+  * Nhân viên Check-in (Staff): Quét mã QR vé trực tiếp qua camera thiết bị hoặc nhập mã vé, kiểm soát vé thời gian thực.
+  * Người tham dự (Attendee): Khám phá sự kiện, đăng ký vé nhận mã QR Pass, AI gửi email xác nhận & nhắc lịch trình, gửi đánh giá phản hồi, trò chuyện với Trợ lý AI.
+  * Kế toán (Accountant): Xem báo cáo doanh thu, phát hành vé, xuất CSV và in ấn.
 
 === DỮ LIỆU HỆ THỐNG "AI EVENTHUB" ĐƯỢC TÍCH HỢP ===
-* Tên hệ thống: AI EventHub - Nền tảng quản lý, tổ chức và vận hành sự kiện ứng dụng trí tuệ nhân tạo toàn diện.
-* Các vai trò trong hệ thống:
-  1. Quản trị viên (Admin / QuanTriVien): Quản lý toàn bộ tài khoản người dùng, phân quyền các vai trò, kích hoạt/khóa tài khoản, xem thống kê hệ thống.
-  2. Ban tổ chức (Organizer / BanToChuc): Khởi tạo và quản lý sự kiện, phiên nội dung, diễn giả, phát hành các hạng vé, AI Studio tạo thông báo tự động và phân tích phản hồi.
-  3. Nhân viên Check-in (Staff / NhanVienCheckin): Quét mã QR vé trực tiếp qua camera thiết bị hoặc nhập mã vé để xác thực và check-in khách mời tại cổng theo thời gian thực.
-  4. Người tham dự (Attendee / NguoiThamDu): Khám phá các sự kiện, xem lịch trình & diễn giả, đăng ký mua vé nhận vé điện tử kèm mã QR, gửi đánh giá phản hồi, trò chuyện với Trợ lý AI.
-
-* Danh sách tất cả sự kiện trong hệ thống:
+* Danh sách tất cả sự kiện:
 ${eventsList}
 
 * Danh sách các phiên nội dung / lịch trình:
@@ -229,15 +239,18 @@ ${sessionsList}
 * Danh sách diễn giả tiêu biểu:
 ${speakersList}
 
-* Bảng giá vé các sự kiện:
+* Bảng giá các hạng vé:
 ${ticketsList}
 
 ${faqList ? `* Câu hỏi thường gặp FAQ:\n${faqList}\n` : ''}
-=== CÂU HỎI CỦA NGƯỜI DÙNG ===
-"${question}"`;
+
+PHONG CÁCH TRÌNH BÀY:
+- Thân thiện, thông minh, lịch sự, tôn trọng người dùng.
+- Trả lời bằng tiếng Việt tự nhiên và chuẩn xác (hoặc bất kỳ ngôn ngữ nào người dùng sử dụng).
+- Trình bày mạch lạc bằng Markdown: dùng gạch đầu dòng, in đậm từ khóa quan trọng, định dạng khối mã code (\`\`\`ngôn_ngữ ... \`\`\`) khi viết code.`;
 }
 
-// Fallback rule-based search if Gemini API is unreachable
+// Fallback khi không có kết nối internet hoặc API Gemini gặp sự cố
 function handleLocalFallback(q, events, faqs, res) {
   const directMatch = (faqs || []).find(item => {
     const itemQ = (item.cauHoi || '').toLowerCase();
@@ -258,30 +271,30 @@ function handleLocalFallback(q, events, faqs, res) {
 
   if (q.includes('vai trò') || q.includes('role') || q.includes('chức năng')) {
     return res.json({
-      answer: `Hệ thống AI EventHub hỗ trợ 4 vai trò chính:\n1. Quản trị viên (Admin): Quản trị người dùng & phân quyền\n2. Ban tổ chức: Quản lý sự kiện, lịch trình, diễn giả, vé\n3. Nhân viên Check-in: Quét mã QR xác thực vé tại cổng\n4. Người tham dự: Xem sự kiện, đặt vé, nhận mã QR và tương tác với AI`,
+      answer: `Hệ thống AI EventHub hỗ trợ các vai trò chính:\n1. Quản trị viên (Admin): Quản trị người dùng & phân quyền\n2. Ban tổ chức: Quản lý sự kiện, lịch trình, diễn giả, vé\n3. Nhân viên Check-in: Quét mã QR xác thực vé tại cổng\n4. Người tham dự: Xem sự kiện, đặt vé, nhận mã QR và tương tác với AI\n5. Kế toán: Thống kê doanh thu, lập báo cáo tài chính`,
       source: 'SystemInfo'
     });
   }
 
   return res.json({
-    answer: `Xin chào! Tôi là Trợ lý AI của nền tảng AI EventHub. Tôi có thể hỗ trợ bạn tìm hiểu mọi thông tin về sự kiện, lịch trình, diễn giả, giá vé, cũng như giải đáp các câu hỏi kiến thức chung. Bạn cần trợ giúp gì hôm nay?`,
+    answer: `Xin chào! Tôi là Trợ lý AI của nền tảng AI EventHub (tích hợp Google Gemini). Hiện tại hệ thống đang chạy ở chế độ cục bộ ngoại tuyến. Bạn có thể hỏi về các sự kiện, lịch trình, giá vé hoặc cách sử dụng hệ thống!`,
     source: 'Fallback'
   });
 }
 
 exports.chatbot = async (req, res) => {
-  const { question, eventId } = req.body;
+  const { question } = req.body;
   const q = (question || '').trim();
 
   if (!q) {
     return res.json({
-      answer: 'Xin chào! Tôi là Trợ lý AI của nền tảng AI EventHub (được vận hành bởi Google Gemini). Tôi có thể hỗ trợ gì cho bạn hôm nay?',
+      answer: 'Xin chào! Tôi là Trợ lý AI (Google Gemini) của hệ thống AI EventHub. Tôi có thể giải đáp mọi câu hỏi kiến thức, lập trình, đời sống, cũng như cung cấp thông tin chi tiết về các sự kiện và tính năng của hệ thống. Bạn cần hỗ trợ gì hôm nay?',
       source: 'Default'
     });
   }
 
   try {
-    // Gather all system data asynchronously in parallel
+    // 1. Thu thập dữ liệu hệ thống mới nhất song song
     const [events, sessions, speakers, tickets, faqs] = await Promise.all([
       dbAll('SELECT * FROM SuKien ORDER BY id ASC'),
       dbAll(`
@@ -300,12 +313,11 @@ exports.chatbot = async (req, res) => {
       dbAll('SELECT * FROM CauHoiChatbot ORDER BY id ASC')
     ]);
 
-    // Check if Gemini API is available
+    // 2. Kiểm tra và gọi Google Gemini với system_instruction riêng biệt
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey && apiKey !== 'your_gemini_api_key_here') {
       try {
-        const prompt = buildFullSystemPrompt({
-          question: q,
+        const systemInstruction = buildSystemInstruction({
           events,
           sessions,
           speakers,
@@ -313,7 +325,8 @@ exports.chatbot = async (req, res) => {
           faqs
         });
 
-        const geminiAnswer = await callGemini(prompt);
+        // Gọi Gemini: input là câu hỏi trực tiếp của người dùng, systemInstruction là hướng dẫn vai trò và dữ liệu hệ thống
+        const geminiAnswer = await callGemini(q, systemInstruction);
         if (geminiAnswer && geminiAnswer.trim()) {
           return res.json({
             answer: geminiAnswer.trim(),
@@ -322,11 +335,11 @@ exports.chatbot = async (req, res) => {
           });
         }
       } catch (geminiError) {
-        console.warn('[Gemini AI] Chuyển sang fallback FAQ do lỗi gọi API:', geminiError.message);
+        console.warn('[Gemini AI] Lỗi gọi API Gemini:', geminiError.message);
       }
     }
 
-    // Fallback: rule-based & FAQ
+    // 3. Fallback khi không thể gọi Gemini
     return handleLocalFallback(q.toLowerCase(), events, faqs, res);
   } catch (error) {
     console.error('[Chatbot Error]', error);
@@ -336,3 +349,4 @@ exports.chatbot = async (req, res) => {
     });
   }
 };
+
