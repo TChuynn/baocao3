@@ -1310,28 +1310,53 @@ input:focus, select:focus, textarea:focus {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
+  padding: 20px 16px;
+  overflow-y: auto;
 }
 
 .modal-card {
-  background: rgba(18, 25, 42, 0.95);
+  background: rgba(18, 25, 42, 0.98);
   border: 1px solid var(--border-glass-bright);
   border-radius: var(--radius-xl);
   width: 100%;
   max-width: 480px;
-  padding: 30px;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8);
+  max-height: calc(100vh - 40px);
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 28px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85);
   animation: zoomIn 0.25s ease forwards;
+  overflow-y: auto;
 }
 
-.modal-card.wide {
+.modal-card::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-card::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 4px;
+}
+
+.modal-card::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.4);
+  border-radius: 4px;
+}
+
+.modal-card::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.7);
+}
+
+.modal-card.wide,
+.modal-card.modal-lg {
   max-width: 720px;
 }
 
@@ -1922,8 +1947,8 @@ input:focus, select:focus, textarea:focus {
 .event-checkbox-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 10px;
+  padding: 8px 12px;
   background: rgba(30, 41, 59, 0.6);
   border: 1px solid var(--border-glass);
   border-radius: 8px;
@@ -1938,10 +1963,11 @@ input:focus, select:focus, textarea:focus {
 }
 
 .event-checkbox-card input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   accent-color: var(--accent-color);
   cursor: pointer;
+  margin: 0;
 }
 
 .event-checkbox-info {
@@ -1954,19 +1980,19 @@ input:focus, select:focus, textarea:focus {
 .event-checkbox-name {
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 0.92rem;
+  font-size: 0.88rem;
 }
 
 .event-checkbox-code {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
   margin-left: 6px;
 }
 
 .event-checkbox-badge {
-  font-size: 0.78rem;
-  padding: 3px 8px;
-  border-radius: 12px;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
   background: rgba(16, 185, 129, 0.15);
   color: #34d399;
   border: 1px solid rgba(16, 185, 129, 0.3);

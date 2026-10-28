@@ -1486,58 +1486,58 @@
   <!-- Modal Gửi thông báo đến người tham dự (BTC AI Studio) -->
   <div id="broadcastNotificationModal" class="modal-overlay hidden">
     <div class="modal-card modal-lg" style="max-width: 680px; width: 92%;">
-      <div class="modal-header">
+      <div class="modal-header" style="margin-bottom: 14px; padding-bottom: 10px;">
         <div>
-          <h3 style="display: flex; align-items: center; gap: 8px; margin: 0;">
+          <h3 style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.25rem;">
             <i class="fas fa-paper-plane" style="color: var(--accent-color);"></i>
             Gửi thông báo đến Người tham dự
           </h3>
-          <p class="text-muted" style="font-size: 0.85rem; margin-top: 4px; margin-bottom: 0;">
+          <p class="text-muted" style="font-size: 0.82rem; margin-top: 3px; margin-bottom: 0;">
             Hệ thống sẽ gửi email trực tiếp theo nội dung thông báo AI đến người tham gia các sự kiện được chọn.
           </p>
         </div>
         <button type="button" class="close-btn" data-close="broadcastNotificationModal">×</button>
       </div>
 
-      <div class="styled-form" style="padding-top: 10px;">
+      <div class="styled-form" style="padding-top: 4px; display: flex; flex-direction: column; gap: 12px;">
         <!-- Tiêu đề email -->
-        <div class="form-group">
-          <label><strong>Tiêu đề thông báo / Email Subject:</strong></label>
-          <input type="text" id="broadcastEmailTitle" placeholder="Nhập tiêu đề thông báo..." required />
+        <div class="form-group" style="margin: 0;">
+          <label style="margin-bottom: 4px; font-size: 0.88rem;"><strong>Tiêu đề thông báo / Email Subject:</strong></label>
+          <input type="text" id="broadcastEmailTitle" placeholder="Nhập tiêu đề thông báo..." required style="padding: 9px 12px; font-size: 0.9rem;" />
         </div>
 
         <!-- Nội dung thông báo AI -->
-        <div class="form-group">
-          <div class="flex-between">
-            <label><strong>Nội dung thông báo (đã sinh bởi AI):</strong></label>
-            <small class="text-muted">Có thể chỉnh sửa trước khi gửi</small>
+        <div class="form-group" style="margin: 0;">
+          <div class="flex-between" style="margin-bottom: 4px;">
+            <label style="margin: 0; font-size: 0.88rem;"><strong>Nội dung thông báo (đã sinh bởi AI):</strong></label>
+            <small class="text-muted" style="font-size: 0.78rem;">Có thể chỉnh sửa trước khi gửi</small>
           </div>
-          <textarea id="broadcastEmailContent" rows="6" style="font-size: 0.9rem; font-family: inherit; line-height: 1.5;" placeholder="Nội dung thông báo..."></textarea>
+          <textarea id="broadcastEmailContent" rows="3" style="font-size: 0.88rem; font-family: inherit; line-height: 1.5; min-height: 80px; max-height: 140px; resize: vertical; padding: 10px 12px;" placeholder="Nội dung thông báo..."></textarea>
         </div>
 
         <!-- Chọn danh sách sự kiện -->
-        <div class="form-group">
-          <div class="flex-between" style="margin-bottom: 8px;">
-            <label style="margin: 0;"><strong>Chọn danh sách sự kiện nhận thông báo:</strong></label>
-            <div style="font-size: 0.85rem;">
+        <div class="form-group" style="margin: 0;">
+          <div class="flex-between" style="margin-bottom: 6px;">
+            <label style="margin: 0; font-size: 0.88rem;"><strong>Chọn danh sách sự kiện nhận thông báo:</strong></label>
+            <div style="font-size: 0.8rem;">
               <button type="button" class="btn btn-sm btn-outline" id="btnSelectAllBroadcastEvents" style="padding: 2px 8px; margin-right: 6px;">Chọn tất cả</button>
               <button type="button" class="btn btn-sm btn-outline" id="btnUnselectAllBroadcastEvents" style="padding: 2px 8px;">Bỏ chọn</button>
             </div>
           </div>
           
-          <div id="broadcastEventsList" class="broadcast-events-container" style="max-height: 200px; overflow-y: auto; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-glass); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+          <div id="broadcastEventsList" class="broadcast-events-container" style="max-height: 135px; overflow-y: auto; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
             <!-- Populated dynamically with checkboxes -->
           </div>
-          <div class="mt-2 flex-between" style="font-size: 0.88rem; color: #38bdf8;">
+          <div class="mt-2 flex-between" style="font-size: 0.84rem; color: #38bdf8;">
             <span id="broadcastTargetSummary"><i class="fas fa-users"></i> Đang tải danh sách người tham dự...</span>
           </div>
         </div>
 
         <!-- Trạng thái gửi / Thông báo kết quả -->
-        <div id="broadcastStatusBox" class="hidden mt-2" style="padding: 12px; border-radius: 8px; font-size: 0.9rem;"></div>
+        <div id="broadcastStatusBox" class="hidden" style="padding: 10px 14px; border-radius: 8px; font-size: 0.88rem;"></div>
 
         <!-- Nút hành động -->
-        <div class="modal-footer flex-end gap-2 mt-3" style="padding: 0;">
+        <div class="modal-footer flex-end gap-2" style="padding-top: 6px; margin-top: 4px;">
           <button type="button" class="btn btn-outline" data-close="broadcastNotificationModal">Đóng</button>
           <button type="button" class="btn btn-primary" id="btnConfirmSendBroadcast">
             <i class="fas fa-paper-plane"></i> Gửi thông báo ngay
