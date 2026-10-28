@@ -1634,8 +1634,40 @@ function setupEventListeners() {
     }
   });
 
-  // BTC AI Generate Notification
+  // BTC AI Generate Notification & Direct Broadcast
   let currentGeneratedNotification = null;
+
+  // Cập nhật thông tin sự kiện mục tiêu và số người nhận theo bước chọn sự kiện trước đó
+  const updateAiNotificationTargetInfo = async () => {
+    const eventSelect = document.getElementById('aiNotificationEvent');
+    const targetEventNameEl = document.getElementById('aiNotificationTargetEventName');
+    const targetCountEl = document.getElementById('aiNotificationTargetCount');
+    if (!eventSelect) return;
+
+    const eventId = Number(eventSelect.value);
+    const eventName = eventSelect.options[eventSelect.selectedIndex]?.text || currentGeneratedNotification?.eventName || 'Sự kiện đã chọn';
+
+    if (targetEventNameEl) targetEventNameEl.textContent = eventName;
+
+    if (targetCountEl) {
+      targetCountEl.textContent = 'Đang đếm người nhận...';
+      try {
+        const regs = await api.get('/api/registrations', true).catch(() => []);
+        const eventRegs = regs.filter(r => r.suKienId === eventId && r.trangThai !== 'Huy');
+        const uniqueEmails = new Set(eventRegs.map(r => (r.email || '').toLowerCase().trim()).filter(Boolean));
+        targetCountEl.textContent = `${uniqueEmails.size} người nhận`;
+      } catch (e) {
+        targetCountEl.textContent = 'Người tham dự';
+      }
+    }
+  };
+
+  document.getElementById('aiNotificationEvent')?.addEventListener('change', () => {
+    const actionsBox = document.getElementById('aiNotificationActions');
+    if (actionsBox && !actionsBox.classList.contains('hidden')) {
+      updateAiNotificationTargetInfo();
+    }
+  });
 
   document.getElementById('btnAiGenerateNotification')?.addEventListener('click', async () => {
     const type = document.getElementById('aiNotificationType').value;
@@ -1643,9 +1675,14 @@ function setupEventListeners() {
     const message = document.getElementById('aiNotificationPrompt').value;
     const outBox = document.getElementById('aiNotificationResult');
     const actionsBox = document.getElementById('aiNotificationActions');
+    const statusBox = document.getElementById('aiNotificationStatus');
 
     outBox.textContent = 'AI đang khởi tạo nội dung...';
     if (actionsBox) actionsBox.classList.add('hidden');
+    if (statusBox) {
+      statusBox.classList.add('hidden');
+      statusBox.textContent = '';
+    }
 
     try {
       const res = await api.post('/api/ai/generate-notification', { type, message, eventId }, true);
@@ -1662,6 +1699,7 @@ function setupEventListeners() {
 
       if (actionsBox && content) {
         actionsBox.classList.remove('hidden');
+        await updateAiNotificationTargetInfo();
       }
     } catch (e) {
       outBox.textContent = 'Lỗi tạo thông báo: ' + e.message;
@@ -1669,131 +1707,29 @@ function setupEventListeners() {
     }
   });
 
-  // Open Broadcast Modal
-  document.getElementById('btnOpenBroadcastModal')?.addEventListener('click', async () => {
-    if (!currentGeneratedNotification || !currentGeneratedNotification.content) {
-      alert('Vui lòng tạo thông báo bằng AI trước khi gửi.');
-      return;
-    }
+  // Gửi thông báo trực tiếp đến những người đã đăng ký sự kiện đã chọn ở bước trước
+  document.getElementById('btnSendAiNotification')?.addEventListener('click', async () => {
+    const eventSelect = document.getElementById('aiNotificationEvent');
+    const eventId = Number(eventSelect?.value);
+    const eventName = eventSelect?.options[eventSelect.selectedIndex]?.text || currentGeneratedNotification?.eventName || 'sự kiện đã chọn';
+    const outBox = document.getElementById('aiNotificationResult');
+    const content = (outBox?.innerText || outBox?.textContent || currentGeneratedNotification?.content || '').trim();
+    const type = document.getElementById('aiNotificationType')?.value || currentGeneratedNotification?.type || 'MoiThamDu';
+    const title = currentGeneratedNotification?.title || `Thông báo sự kiện: ${eventName}`;
+    const sendBtn = document.getElementById('btnSendAiNotification');
+    const statusBox = document.getElementById('aiNotificationStatus');
 
-    const titleInput = document.getElementById('broadcastEmailTitle');
-    const contentInput = document.getElementById('broadcastEmailContent');
-    const eventsListContainer = document.getElementById('broadcastEventsList');
-    const targetSummary = document.getElementById('broadcastTargetSummary');
-    const statusBox = document.getElementById('broadcastStatusBox');
-
-    if (statusBox) {
-      statusBox.classList.add('hidden');
-      statusBox.textContent = '';
-    }
-
-    if (titleInput) titleInput.value = currentGeneratedNotification.title || 'Thông báo từ Ban tổ chức';
-    if (contentInput) contentInput.value = currentGeneratedNotification.content || '';
-
-    // Load registrations to calculate attendees per event
-    eventsListContainer.innerHTML = '<div style="padding: 10px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Đang tải danh sách sự kiện và người đăng ký...</div>';
-    openModal('broadcastNotificationModal');
-
-    try {
-      const [eventsRes, regsRes] = await Promise.all([
-        state.events && state.events.length > 0 ? Promise.resolve(state.events) : api.get('/api/events'),
-        api.get('/api/registrations', true).catch(() => [])
-      ]);
-
-      const allEvents = eventsRes || [];
-      const allRegs = regsRes || [];
-
-      // Calculate attendee counts per event
-      const attendeeCountPerEvent = {};
-      allEvents.forEach(ev => {
-        const evRegs = allRegs.filter(r => r.suKienId === ev.id && r.trangThai !== 'Huy');
-        const uniqueEmails = new Set(evRegs.map(r => (r.email || '').toLowerCase().trim()).filter(Boolean));
-        attendeeCountPerEvent[ev.id] = uniqueEmails.size;
-      });
-
-      // Render checkboxes
-      eventsListContainer.innerHTML = allEvents.map(ev => {
-        const count = attendeeCountPerEvent[ev.id] || 0;
-        const isCurrent = ev.id === currentGeneratedNotification.eventId;
-        const isChecked = isCurrent || allEvents.length === 1;
-
-        return `
-          <label class="event-checkbox-card" for="chk_event_${ev.id}">
-            <input type="checkbox" id="chk_event_${ev.id}" class="broadcast-event-checkbox" value="${ev.id}" data-count="${count}" ${isChecked ? 'checked' : ''} />
-            <div class="event-checkbox-info">
-              <div>
-                <span class="event-checkbox-name">${ev.tenSuKien}</span>
-                <span class="event-checkbox-code">(${ev.maSuKien || 'EVT'})</span>
-              </div>
-              <span class="event-checkbox-badge">👥 ${count} người tham dự</span>
-            </div>
-          </label>
-        `;
-      }).join('');
-
-      // Helper to update summary text
-      const updateBroadcastSummary = () => {
-        const checkedBoxes = Array.from(document.querySelectorAll('.broadcast-event-checkbox:checked'));
-        const checkedEventIds = checkedBoxes.map(cb => Number(cb.value));
-        
-        // Count unique emails across all selected events
-        const selectedRegs = allRegs.filter(r => checkedEventIds.includes(r.suKienId) && r.trangThai !== 'Huy');
-        const uniqueEmails = new Set(selectedRegs.map(r => (r.email || '').toLowerCase().trim()).filter(Boolean));
-        
-        if (targetSummary) {
-          targetSummary.innerHTML = `<strong>Dự kiến gửi:</strong> ${uniqueEmails.size} người tham dự (thuộc ${checkedBoxes.length}/${allEvents.length} sự kiện được chọn).`;
-        }
-      };
-
-      document.querySelectorAll('.broadcast-event-checkbox').forEach(cb => {
-        cb.addEventListener('change', updateBroadcastSummary);
-      });
-
-      updateBroadcastSummary();
-
-    } catch (err) {
-      eventsListContainer.innerHTML = `<div style="color: #ef4444; padding: 10px;">Lỗi tải dữ liệu: ${err.message}</div>`;
-    }
-  });
-
-  // Select all / Unselect all broadcast events
-  document.getElementById('btnSelectAllBroadcastEvents')?.addEventListener('click', () => {
-    document.querySelectorAll('.broadcast-event-checkbox').forEach(cb => cb.checked = true);
-    document.querySelector('.broadcast-event-checkbox')?.dispatchEvent(new Event('change'));
-  });
-
-  document.getElementById('btnUnselectAllBroadcastEvents')?.addEventListener('click', () => {
-    document.querySelectorAll('.broadcast-event-checkbox').forEach(cb => cb.checked = false);
-    document.querySelector('.broadcast-event-checkbox')?.dispatchEvent(new Event('change'));
-  });
-
-  // Confirm Send Broadcast Notification via Email
-  document.getElementById('btnConfirmSendBroadcast')?.addEventListener('click', async () => {
-    const title = document.getElementById('broadcastEmailTitle')?.value.trim();
-    const content = document.getElementById('broadcastEmailContent')?.value.trim();
-    const checkedBoxes = Array.from(document.querySelectorAll('.broadcast-event-checkbox:checked'));
-    const eventIds = checkedBoxes.map(cb => Number(cb.value));
-    const sendBtn = document.getElementById('btnConfirmSendBroadcast');
-    const statusBox = document.getElementById('broadcastStatusBox');
-
-    if (!title) {
-      alert('Vui lòng nhập tiêu đề thông báo.');
+    if (!eventId) {
+      alert('Vui lòng chọn sự kiện ở bước trên trước khi gửi.');
       return;
     }
 
     if (!content) {
-      alert('Vui lòng nhập nội dung thông báo.');
+      alert('Vui lòng sinh nội dung thông báo bằng AI trước khi gửi.');
       return;
     }
 
-    if (eventIds.length === 0) {
-      alert('Vui lòng chọn ít nhất một sự kiện để gửi thông báo.');
-      return;
-    }
-
-    const type = currentGeneratedNotification?.type || 'MoiThamDu';
-
-    if (!confirm(`Bạn có chắc chắn muốn gửi email thông báo này tới tất cả người tham dự của ${eventIds.length} sự kiện đã chọn?`)) {
+    if (!confirm(`Bạn có chắc chắn muốn gửi email thông báo này đến tất cả người đã đăng ký tham gia sự kiện:\n"${eventName}" không?`)) {
       return;
     }
 
@@ -1812,7 +1748,7 @@ function setupEventListeners() {
 
     try {
       const res = await api.post('/api/ai/broadcast-notification', {
-        eventIds,
+        eventIds: [eventId],
         title,
         content,
         type
@@ -1826,24 +1762,16 @@ function setupEventListeners() {
       }
 
       alert(`✅ ${res.message}`);
-      closeModal('broadcastNotificationModal');
-
-      // Reset button
-      sendBtn.disabled = false;
-      sendBtn.innerHTML = originalBtnHtml;
-
-      // Reload notifications if any view open
-      if (typeof loadBtcEvents === 'function') {
-        loadBtcEvents();
-      }
     } catch (err) {
       if (statusBox) {
         statusBox.style.background = 'rgba(239, 68, 68, 0.15)';
         statusBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
         statusBox.style.color = '#f87171';
         statusBox.innerHTML = `❌ <strong>Lỗi:</strong> ${err.message || 'Không thể gửi email thông báo'}`;
+        statusBox.classList.remove('hidden');
       }
       alert('Lỗi: ' + (err.message || 'Không thể gửi thông báo'));
+    } finally {
       sendBtn.disabled = false;
       sendBtn.innerHTML = originalBtnHtml;
     }
