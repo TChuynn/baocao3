@@ -763,6 +763,75 @@ function initCameraScanner() {
   const btnToggle = document.getElementById('btnToggleCamera');
   const btnStop = document.getElementById('btnStopCamera');
   const placeholder = document.getElementById('qrReaderPlaceholder');
+  const cameraSelect = document.getElementById('qrCameraSelect');
+  let selectedCameraId = null;
+
+  const stopScanner = async () => {
+    if (state.html5QrScanner) {
+      try {
+        if (state.isScanning) {
+          await state.html5QrScanner.stop();
+        }
+        await state.html5QrScanner.clear();
+      } catch (e) {
+        console.warn('Dừng camera:', e);
+      }
+      state.html5QrScanner = null;
+      state.isScanning = false;
+    }
+  };
+
+  const formatCameraErrorMessage = (err) => {
+    const msg = (err && (err.message || err.name || String(err))) || '';
+    if (msg.includes('NotAllowedError') || msg.includes('Permission denied') || msg.includes('PermissionDismissedError') || msg.includes('dismissed')) {
+      return '⚠️ Trình duyệt chưa áp dụng quyền Camera hoặc vừa được bật quyền nhưng chưa tải lại trang.\n\n👉 Bạn hãy nhấn nút "Tải lại" (hoặc bấm F5) ở góc trên trình duyệt để kích hoạt quyền Camera nhé!';
+    }
+    if (msg.includes('NotFoundError') || msg.includes('DevicesNotFoundError')) {
+      return 'Không tìm thấy thiết bị webcam/camera nào trên máy tính của bạn. Hãy kiểm tra kết nối hoặc sử dụng nút "📁 Tải ảnh QR / File ảnh" để quét từ ảnh!';
+    }
+    if (msg.includes('NotReadableError') || msg.includes('TrackStartError')) {
+      return 'Camera đang bị ứng dụng khác (Zoom, Zalo, Teams, phần mềm camera khác,...) chiếm dụng. Vui lòng tắt ứng dụng đó và thử lại!';
+    }
+    if (msg.includes('OverconstrainedError')) {
+      return 'Camera không hỗ trợ thông số yêu cầu. Vui lòng kiểm tra lại thiết bị hoặc đổi camera!';
+    }
+    return msg ? `Không thể mở camera: ${msg}` : 'Không thể khởi động camera. Vui lòng kiểm tra quyền và tải lại trang (F5).';
+  };
+
+  // Cấu hình vùng nhận diện và xử lý quét
+  const qrboxFunction = (viewfinderWidth, viewfinderHeight) => {
+    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+    const qrboxSize = Math.max(Math.floor(minEdge * 0.85), 260);
+    return {
+      width: qrboxSize,
+      height: qrboxSize
+    };
+  };
+
+  let lastScannedText = '';
+  let lastScanTime = 0;
+
+  const onScanSuccess = (decodedText) => {
+    const clean = String(decodedText || '').trim();
+    const now = Date.now();
+    // Chống lặp trong 2.5s cho cùng 1 mã
+    if (clean === lastScannedText && now - lastScanTime < 2500) {
+      return;
+    }
+    lastScannedText = clean;
+    lastScanTime = now;
+    processCheckinCode(clean);
+  };
+
+  // Cấu hình quét siêu nhạy: 25 FPS, tăng tốc phần cứng
+  const scanConfig = {
+    fps: 25,
+    qrbox: qrboxFunction,
+    aspectRatio: 1.0,
+    experimentalFeatures: {
+      useBarCodeDetectorIfSupported: true
+    }
+  };
 
   btnToggle?.addEventListener('click', async () => {
     if (typeof Html5Qrcode === 'undefined') {
@@ -775,7 +844,39 @@ function initCameraScanner() {
       btnToggle.style.display = 'none';
       btnStop.style.display = 'inline-flex';
 
-      // 1. Khởi tạo Html5Qrcode với BarcodeDetector gốc của trình duyệt (tăng tốc phần cứng, đọc nhạy hơn)
+      // 1. Dọn dẹp scanner cũ trước khi mở mới
+      await stopScanner();
+
+      // 2. Lấy danh sách camera thực tế của máy
+      let cameras = [];
+      try {
+        cameras = await Html5Qrcode.getCameras();
+      } catch (camListErr) {
+        console.warn('Lỗi truy vấn camera:', camListErr);
+        const listErrMsg = String(camListErr?.message || camListErr || '');
+        if (listErrMsg.includes('NotAllowedError') || listErrMsg.includes('Permission denied')) {
+          throw camListErr;
+        }
+      }
+
+      // 3. Xử lý dropdown chọn camera nếu máy có nhiều camera
+      if (cameraSelect && cameras && cameras.length > 1) {
+        cameraSelect.innerHTML = cameras.map((c, i) =>
+          `<option value="${c.id}">${c.label || ('Camera ' + (i + 1))}</option>`
+        ).join('');
+        cameraSelect.style.display = 'inline-block';
+        if (!selectedCameraId || !cameras.some(c => c.id === selectedCameraId)) {
+          selectedCameraId = cameras[0].id;
+        }
+        cameraSelect.value = selectedCameraId;
+      } else {
+        if (cameraSelect) cameraSelect.style.display = 'none';
+        if (cameras && cameras.length > 0) {
+          selectedCameraId = cameras[0].id;
+        }
+      }
+
+      // 4. Khởi tạo phiên bản quét mới
       state.html5QrScanner = new Html5Qrcode("qr-reader", {
         experimentalFeatures: {
           useBarCodeDetectorIfSupported: true
@@ -783,79 +884,59 @@ function initCameraScanner() {
         verbose: false
       });
 
-      // 2. Khung quét rộng 85% khung hình giúp bắt mã ở phạm vi rộng hơn nhiều, không bị cắt viền
-      const qrboxFunction = (viewfinderWidth, viewfinderHeight) => {
-        const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-        const qrboxSize = Math.max(Math.floor(minEdge * 0.85), 260);
-        return {
-          width: qrboxSize,
-          height: qrboxSize
-        };
-      };
-
-      let lastScannedText = '';
-      let lastScanTime = 0;
-
-      const onScanSuccess = (decodedText) => {
-        const clean = String(decodedText || '').trim();
-        const now = Date.now();
-        // Chống lặp trong 2.5s cho cùng 1 mã
-        if (clean === lastScannedText && now - lastScanTime < 2500) {
-          return;
-        }
-        lastScannedText = clean;
-        lastScanTime = now;
-        processCheckinCode(clean);
-      };
-
-      // 3. Cấu hình quét siêu nhạy: 25 FPS, tăng tốc phần cứng
-      const scanConfig = {
-        fps: 25,
-        qrbox: qrboxFunction,
-        aspectRatio: 1.0,
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true
-        }
-      };
-
-      // 4. Thử kích hoạt camera HD 720p trước, nếu thiết bị không hỗ trợ thì fallback camera mặc định
-      try {
-        await state.html5QrScanner.start(
-          { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-          scanConfig,
-          onScanSuccess,
-          () => {}
-        );
-      } catch (camErr) {
-        console.warn('Fallback camera standard:', camErr);
-        await state.html5QrScanner.start(
-          { facingMode: "user" },
-          scanConfig,
-          onScanSuccess,
-          () => {}
-        );
-      }
+      // 5. Bắt đầu quét với camera cụ thể hoặc chế độ mặc định an toàn
+      const cameraConfig = selectedCameraId ? selectedCameraId : { facingMode: "user" };
+      await state.html5QrScanner.start(
+        cameraConfig,
+        scanConfig,
+        onScanSuccess,
+        () => {}
+      );
 
       state.isScanning = true;
     } catch (err) {
-      alert('Không thể mở camera: ' + (err.message || 'Vui lòng cấp quyền camera'));
+      console.error('Lỗi khởi động camera:', err);
+      alert(formatCameraErrorMessage(err));
+      await stopScanner();
       placeholder.style.display = 'flex';
       btnToggle.style.display = 'inline-flex';
       btnStop.style.display = 'none';
+      if (cameraSelect) cameraSelect.style.display = 'none';
+    }
+  });
+
+  cameraSelect?.addEventListener('change', async (e) => {
+    selectedCameraId = e.target.value;
+    if (state.isScanning) {
+      try {
+        await stopScanner();
+        state.html5QrScanner = new Html5Qrcode("qr-reader", {
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+          verbose: false
+        });
+        await state.html5QrScanner.start(
+          selectedCameraId,
+          scanConfig,
+          onScanSuccess,
+          () => {}
+        );
+        state.isScanning = true;
+      } catch (err) {
+        alert(formatCameraErrorMessage(err));
+        await stopScanner();
+        placeholder.style.display = 'flex';
+        btnToggle.style.display = 'inline-flex';
+        btnStop.style.display = 'none';
+      }
     }
   });
 
   btnStop?.addEventListener('click', async () => {
-    if (state.html5QrScanner && state.isScanning) {
-      try {
-        await state.html5QrScanner.stop();
-      } catch (e) {}
-      state.html5QrScanner = null;
-      state.isScanning = false;
-    }
+    await stopScanner();
     placeholder.style.display = 'flex';
     btnToggle.style.display = 'inline-flex';
     btnStop.style.display = 'none';
+    if (cameraSelect) cameraSelect.style.display = 'none';
   });
 
   // 5. Hỗ trợ quét trực tiếp từ ảnh chụp QR trên máy tính/điện thoại
