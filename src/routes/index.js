@@ -1,5 +1,15 @@
 const express = require('express');
-const { login, register, getProfile, listAccounts, createAccount, updateAccountRole } = require('../controllers/authController');
+const { 
+  login, 
+  register, 
+  getProfile, 
+  listAccounts, 
+  createAccount, 
+  updateAccountRole,
+  updateAccount,
+  deleteAccount,
+  toggleLockAccount
+} = require('../controllers/authController');
 const { listEvents, getEventById, createEvent, updateEvent, deleteEvent } = require('../controllers/eventController');
 const { generateNotification, summarizeFeedback, chatbot, broadcastNotification } = require('../controllers/aiController');
 const { authMiddleware } = require('../middleware/auth');
@@ -33,7 +43,10 @@ router.post('/api/auth/login', login);
 router.post('/api/auth/register', register);
 router.get('/api/accounts', authMiddleware(['QuanTriVien']), listAccounts);
 router.post('/api/accounts', authMiddleware(['QuanTriVien']), createAccount);
+router.put('/api/accounts/:id', authMiddleware(['QuanTriVien']), updateAccount);
 router.put('/api/accounts/:id/role', authMiddleware(['QuanTriVien']), updateAccountRole);
+router.patch('/api/accounts/:id/toggle-lock', authMiddleware(['QuanTriVien']), toggleLockAccount);
+router.delete('/api/accounts/:id', authMiddleware(['QuanTriVien']), deleteAccount);
 router.get('/api/auth/profile', authMiddleware(['QuanTriVien', 'BanToChuc', 'NhanVienCheckIn', 'NguoiThamDu', 'KeToan']), getProfile);
 
 // Dashboard Summary (Admin, BTC, KeToan)

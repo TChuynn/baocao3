@@ -373,9 +373,14 @@
 
             <!-- Danh sách tài khoản -->
             <div class="glass-panel admin-table-panel">
-              <div class="panel-header">
-                <h3>Danh sách tài khoản hệ thống</h3>
-                <span class="badge" id="adminAccountsCount">Đang tải...</span>
+              <div class="panel-header flex-between" style="flex-wrap: wrap; gap: 8px;">
+                <div>
+                  <h3 style="margin: 0;">Danh sách tài khoản hệ thống</h3>
+                  <span class="badge badge-info" id="adminAccountsCount" style="margin-top: 4px; display: inline-block;">Đang tải...</span>
+                </div>
+                <div style="max-width: 280px; width: 100%;">
+                  <input type="text" id="adminAccountSearchInput" placeholder="🔍 Tìm kiếm theo tên, email, vai trò..." style="padding: 7px 12px; font-size: 0.85rem; width: 100%; border-radius: var(--radius-sm);" />
+                </div>
               </div>
               <div class="table-container">
                 <table class="styled-table admin-account-table">
@@ -383,9 +388,9 @@
                     <tr>
                       <th style="min-width: 150px;">Tài khoản</th>
                       <th style="min-width: 130px;">Họ tên</th>
-                      <th style="min-width: 185px;">Vai trò</th>
-                      <th style="min-width: 140px;">Trạng thái</th>
-                      <th style="min-width: 80px; text-align: center;">Thao tác</th>
+                      <th style="min-width: 120px;">Vai trò</th>
+                      <th style="min-width: 110px;">Trạng thái</th>
+                      <th style="min-width: 190px; text-align: center;">Thao tác Quản trị</th>
                     </tr>
                   </thead>
                   <tbody id="adminAccountTableBody">
@@ -1484,6 +1489,79 @@
           <textarea name="ghiChu" rows="3" placeholder="Đã đối soát với ngân hàng..."></textarea>
         </div>
         <button type="submit" class="btn btn-primary btn-block">Lưu báo cáo tài chính</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Chỉnh sửa tài khoản (Admin) -->
+  <div id="adminEditAccountModal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 520px; width: 92%;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-user-edit" style="color: var(--accent);"></i>
+            Chỉnh sửa tài khoản
+          </h3>
+          <p class="text-muted" style="font-size: 0.82rem; margin-top: 2px; margin-bottom: 0;">
+            Cập nhật thông tin, vai trò, trạng thái khóa hoặc đặt lại mật khẩu người dùng.
+          </p>
+        </div>
+        <button type="button" class="close-btn" data-close="adminEditAccountModal">×</button>
+      </div>
+
+      <form id="adminEditAccountForm" class="styled-form" style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+        <input type="hidden" id="editAccountId" />
+
+        <div class="form-group" style="margin: 0;">
+          <label style="font-size: 0.85rem; margin-bottom: 4px;"><strong>Tên đăng nhập:</strong> <span style="color: #ef4444;">*</span></label>
+          <input type="text" id="editAccountUsername" required style="padding: 8px 12px;" />
+        </div>
+
+        <div class="form-group" style="margin: 0;">
+          <label style="font-size: 0.85rem; margin-bottom: 4px;"><strong>Họ và tên người dùng:</strong> <span style="color: #ef4444;">*</span></label>
+          <input type="text" id="editAccountFullName" required style="padding: 8px 12px;" />
+        </div>
+
+        <div class="form-group" style="margin: 0;">
+          <label style="font-size: 0.85rem; margin-bottom: 4px;"><strong>Email liên hệ:</strong> <span style="color: #ef4444;">*</span></label>
+          <input type="email" id="editAccountEmail" required style="padding: 8px 12px;" />
+        </div>
+
+        <div class="form-row two-col" style="gap: 12px; margin: 0;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 0.85rem; margin-bottom: 4px;"><strong>Vai trò hệ thống:</strong> <span style="color: #ef4444;">*</span></label>
+            <select id="editAccountRole" required style="padding: 8px 12px;">
+              <option value="QuanTriVien">👑 Quản trị viên (Admin)</option>
+              <option value="BanToChuc">🎪 Ban tổ chức (Organizer)</option>
+              <option value="NhanVienCheckIn">🎫 Nhân viên check-in (Staff)</option>
+              <option value="KeToan">💰 Kế toán (Accountant)</option>
+              <option value="NguoiThamDu">👤 Người tham dự (Guest)</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 0.85rem; margin-bottom: 4px;"><strong>Trạng thái:</strong> <span style="color: #ef4444;">*</span></label>
+            <select id="editAccountStatus" required style="padding: 8px 12px;">
+              <option value="HoatDong">🟢 Hoạt động</option>
+              <option value="Khoa">🔴 Đã khóa (Chặn)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin: 0;">
+          <div class="flex-between" style="margin-bottom: 4px;">
+            <label style="font-size: 0.85rem; margin: 0;"><strong>Đặt mật khẩu mới:</strong></label>
+            <small class="text-muted" style="font-size: 0.78rem;">Bỏ trống nếu giữ nguyên mật khẩu cũ</small>
+          </div>
+          <input type="password" id="editAccountPassword" placeholder="Nhập mật khẩu mới (nếu muốn đổi)..." style="padding: 8px 12px;" />
+        </div>
+
+        <div class="modal-footer flex-end gap-2" style="margin-top: 6px; padding-top: 8px;">
+          <button type="button" class="btn btn-outline" data-close="adminEditAccountModal">Hủy</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitEditAccount">
+            <i class="fas fa-save"></i> Lưu thay đổi
+          </button>
+        </div>
       </form>
     </div>
   </div>

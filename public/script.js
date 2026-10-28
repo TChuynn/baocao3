@@ -57,6 +57,25 @@ const api = {
     return data;
   },
 
+  async patch(path, body = {}, withAuth = false) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (withAuth) {
+      const token = localStorage.getItem('event_token');
+      if (token) headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await fetch(path, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(body)
+    });
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : {};
+    if (!res.ok) {
+      throw new Error(data.message || 'Yêu cầu không thành công');
+    }
+    return data;
+  },
+
   async delete(path, withAuth = true) {
     const headers = {};
     if (withAuth) {
@@ -429,12 +448,75 @@ async function loadAdminDashboard() {
   }
 }
 
+function renderAdminAccountsTable(accounts) {
+  const tbody = document.getElementById('adminAccountTableBody');
+  if (!tbody) return;
+
+  const ROLE_BADGES = {
+    QuanTriVien: '<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">👑 Admin</span>',
+    BanToChuc: '<span class="badge" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.3);">🎪 BTC</span>',
+    NhanVienCheckIn: '<span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);">🎫 Check-in</span>',
+    KeToan: '<span class="badge" style="background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3);">💰 Kế toán</span>',
+    NguoiThamDu: '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3);">👤 Khách</span>'
+  };
+
+  tbody.innerHTML = (accounts || []).map(acc => {
+    const isSelf = state.currentUser?.id === acc.id;
+    const isLocked = acc.trangThai === 'Khoa';
+    const roleBadge = ROLE_BADGES[acc.vaiTro] || `<span class="badge badge-info">${acc.vaiTro}</span>`;
+    const statusBadge = isLocked 
+      ? '<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);">🔴 Đã khóa</span>'
+      : '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">🟢 Hoạt động</span>';
+
+    return `
+      <tr>
+        <td>
+          <div style="font-weight: 600; display: flex; align-items: center; gap: 6px;">
+            ${acc.tenDangNhap}
+            ${isSelf ? '<span class="badge badge-accent" style="font-size: 0.7rem; padding: 2px 6px;">Bạn</span>' : ''}
+          </div>
+          <small class="text-muted">${acc.email}</small>
+        </td>
+        <td>${acc.hoTen}</td>
+        <td>${roleBadge}</td>
+        <td>${statusBadge}</td>
+        <td style="text-align: center; white-space: nowrap;">
+          <div style="display: inline-flex; gap: 6px; align-items: center; justify-content: center;">
+            <button class="btn btn-sm btn-outline" data-admin-edit="${acc.id}" title="Chỉnh sửa thông tin tài khoản">
+              ✏️ Sửa
+            </button>
+            <button class="btn btn-sm ${isLocked ? 'btn-success' : 'btn-warning'}" 
+                    data-admin-lock="${acc.id}" 
+                    data-username="${acc.tenDangNhap}"
+                    data-name="${acc.hoTen}"
+                    data-status="${acc.trangThai}"
+                    ${isSelf ? 'disabled style="opacity: 0.4; cursor: not-allowed;" title="Không thể tự khóa tài khoản của chính bạn"' : `title="${isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản'}"`}>
+              ${isLocked ? '🔓 Mở' : '🔒 Khóa'}
+            </button>
+            <button class="btn btn-sm btn-danger" 
+                    data-admin-delete="${acc.id}" 
+                    data-username="${acc.tenDangNhap}"
+                    data-name="${acc.hoTen}"
+                    ${isSelf ? 'disabled style="opacity: 0.4; cursor: not-allowed;" title="Không thể tự xóa tài khoản của chính bạn"' : 'title="Xóa vĩnh viễn tài khoản"'}>
+              🗑️ Xóa
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('') || '<tr><td colspan="5" class="text-center" style="padding: 20px; color: var(--text-muted);">Không tìm thấy tài khoản nào</td></tr>';
+}
+
 async function loadAdminAccounts() {
   try {
     const accounts = await api.get('/api/accounts', true);
     state.accounts = accounts;
-    document.getElementById('adminAccountsCount').textContent = `${accounts.length} tài khoản`;
-    document.getElementById('adminAccountTotalBadge').textContent = `${accounts.length} tài khoản`;
+    state.cachedAdminAccounts = accounts;
+
+    const countEl = document.getElementById('adminAccountsCount');
+    if (countEl) countEl.textContent = `${accounts.length} tài khoản`;
+    const totalBadge = document.getElementById('adminAccountTotalBadge');
+    if (totalBadge) totalBadge.textContent = `${accounts.length} tài khoản`;
 
     const roleCounts = {
       QuanTriVien: accounts.filter(a => a.vaiTro === 'QuanTriVien').length,
@@ -457,36 +539,7 @@ async function loadAdminAccounts() {
       }).join('');
     }
 
-    const tbody = document.getElementById('adminAccountTableBody');
-    if (tbody) {
-      tbody.innerHTML = accounts.map(acc => `
-        <tr>
-          <td>
-            <strong>${acc.tenDangNhap}</strong><br>
-            <small class="text-muted">${acc.email}</small>
-          </td>
-          <td>${acc.hoTen}</td>
-          <td>
-            <select class="table-select" data-admin-role="${acc.id}">
-              <option value="QuanTriVien" ${acc.vaiTro === 'QuanTriVien' ? 'selected' : ''}>Quản trị viên (Admin)</option>
-              <option value="BanToChuc" ${acc.vaiTro === 'BanToChuc' ? 'selected' : ''}>Ban tổ chức (BTC)</option>
-              <option value="NhanVienCheckIn" ${acc.vaiTro === 'NhanVienCheckIn' ? 'selected' : ''}>Nhân viên check-in</option>
-              <option value="KeToan" ${acc.vaiTro === 'KeToan' ? 'selected' : ''}>Kế toán (Accountant)</option>
-              <option value="NguoiThamDu" ${acc.vaiTro === 'NguoiThamDu' ? 'selected' : ''}>Người tham dự (Guest)</option>
-            </select>
-          </td>
-          <td>
-            <select class="table-select status" data-admin-status="${acc.id}">
-              <option value="HoatDong" ${acc.trangThai === 'HoatDong' ? 'selected' : ''}>🟢 Hoạt động</option>
-              <option value="Khoa" ${acc.trangThai === 'Khoa' ? 'selected' : ''}>🔴 Đã khóa</option>
-            </select>
-          </td>
-          <td style="text-align: center;">
-            <button class="btn btn-sm btn-outline" data-admin-save="${acc.id}">Lưu</button>
-          </td>
-        </tr>
-      `).join('') || '<tr><td colspan="5" class="text-center">Chưa có tài khoản nào</td></tr>';
-    }
+    renderAdminAccountsTable(accounts);
   } catch (err) {
     console.warn('Admin accounts fetch error:', err.message);
   }
@@ -1494,23 +1547,137 @@ function setupEventListeners() {
     }
   });
 
-  // Admin Save Role & Status
+  // Admin Search Accounts Filter
+  document.getElementById('adminAccountSearchInput')?.addEventListener('input', (e) => {
+    const term = (e.target.value || '').trim().toLowerCase();
+    if (!state.cachedAdminAccounts) return;
+    if (!term) {
+      renderAdminAccountsTable(state.cachedAdminAccounts);
+      return;
+    }
+    const filtered = state.cachedAdminAccounts.filter(acc => 
+      (acc.tenDangNhap && acc.tenDangNhap.toLowerCase().includes(term)) ||
+      (acc.hoTen && acc.hoTen.toLowerCase().includes(term)) ||
+      (acc.email && acc.email.toLowerCase().includes(term)) ||
+      (acc.vaiTro && acc.vaiTro.toLowerCase().includes(term)) ||
+      (acc.trangThai && acc.trangThai.toLowerCase().includes(term))
+    );
+    renderAdminAccountsTable(filtered);
+  });
+
+  // Admin Account Table Actions: Sửa, Khóa/Mở, Xóa
   document.getElementById('adminAccountTableBody')?.addEventListener('click', async (e) => {
-    const saveBtn = e.target.closest('[data-admin-save]');
-    if (!saveBtn) return;
-    const id = saveBtn.dataset.adminSave;
-    const roleSelect = document.querySelector(`[data-admin-role="${id}"]`);
-    const statusSelect = document.querySelector(`[data-admin-status="${id}"]`);
+    // 1. Chỉnh sửa tài khoản
+    const editBtn = e.target.closest('[data-admin-edit]');
+    if (editBtn) {
+      const id = Number(editBtn.dataset.adminEdit);
+      const acc = (state.cachedAdminAccounts || []).find(a => a.id === id);
+      if (!acc) return;
+
+      document.getElementById('editAccountId').value = acc.id;
+      document.getElementById('editAccountUsername').value = acc.tenDangNhap || '';
+      document.getElementById('editAccountFullName').value = acc.hoTen || '';
+      document.getElementById('editAccountEmail').value = acc.email || '';
+      document.getElementById('editAccountRole').value = acc.vaiTro || 'NguoiThamDu';
+      document.getElementById('editAccountStatus').value = acc.trangThai || 'HoatDong';
+      document.getElementById('editAccountPassword').value = '';
+
+      openModal('adminEditAccountModal');
+      return;
+    }
+
+    // 2. Khóa / Mở khóa tài khoản
+    const lockBtn = e.target.closest('[data-admin-lock]');
+    if (lockBtn) {
+      const id = Number(lockBtn.dataset.adminLock);
+      const username = lockBtn.dataset.username || 'tài khoản này';
+      const name = lockBtn.dataset.name || '';
+      const isLocked = lockBtn.dataset.status === 'Khoa';
+
+      if (id === state.currentUser?.id) {
+        alert('⚠️ Bạn không thể tự khóa tài khoản quản trị của chính mình.');
+        return;
+      }
+
+      const confirmMsg = isLocked
+        ? `Bạn có muốn MỞ KHÓA cho tài khoản "${username}" (${name})?\nNgười dùng này sẽ có thể đăng nhập lại vào hệ thống.`
+        : `Bạn có chắc chắn muốn KHÓA tài khoản "${username}" (${name})?\nNgười dùng này sẽ bị chặn và không thể đăng nhập vào hệ thống!`;
+
+      if (!confirm(confirmMsg)) return;
+
+      try {
+        const res = await api.patch(`/api/accounts/${id}/toggle-lock`, {}, true);
+        alert(`✅ ${res.message}`);
+        await loadAdminAccounts();
+      } catch (err) {
+        alert(`❌ Lỗi: ${err.message || 'Không thể thay đổi trạng thái tài khoản'}`);
+      }
+      return;
+    }
+
+    // 3. Xóa tài khoản vĩnh viễn
+    const delBtn = e.target.closest('[data-admin-delete]');
+    if (delBtn) {
+      const id = Number(delBtn.dataset.adminDelete);
+      const username = delBtn.dataset.username || 'tài khoản này';
+      const name = delBtn.dataset.name || '';
+
+      if (id === state.currentUser?.id) {
+        alert('⚠️ Bạn không thể tự xóa tài khoản quản trị của chính mình.');
+        return;
+      }
+
+      if (!confirm(`⚠️ CẢNH BÁO XÓA:\nBạn có chắc chắn muốn XÓA VĨNH VIỄN tài khoản "${username}" (${name}) khỏi hệ thống không?\nHành động này không thể hoàn tác!`)) {
+        return;
+      }
+
+      try {
+        const res = await api.delete(`/api/accounts/${id}`, true);
+        alert(`✅ ${res.message}`);
+        await loadAdminAccounts();
+      } catch (err) {
+        alert(`❌ Lỗi xóa tài khoản: ${err.message || 'Không thể xóa tài khoản'}`);
+      }
+      return;
+    }
+  });
+
+  // Admin Submit Edit Account Form
+  document.getElementById('adminEditAccountForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editAccountId').value;
+    const tenDangNhap = document.getElementById('editAccountUsername').value.trim();
+    const hoTen = document.getElementById('editAccountFullName').value.trim();
+    const email = document.getElementById('editAccountEmail').value.trim();
+    const vaiTro = document.getElementById('editAccountRole').value;
+    const trangThai = document.getElementById('editAccountStatus').value;
+    const matKhau = document.getElementById('editAccountPassword').value;
+
+    if (!tenDangNhap || !hoTen || !email || !vaiTro) {
+      alert('Vui lòng điền đầy đủ các thông tin bắt buộc.');
+      return;
+    }
+
+    const submitBtn = document.getElementById('btnSubmitEditAccount');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
 
     try {
-      await api.put(`/api/accounts/${id}/role`, {
-        vaiTro: roleSelect.value,
-        trangThai: statusSelect.value
-      }, true);
-      alert('Cập nhật quyền và trạng thái tài khoản thành công');
+      const payload = { tenDangNhap, hoTen, email, vaiTro, trangThai };
+      if (matKhau && matKhau.trim()) {
+        payload.matKhau = matKhau.trim();
+      }
+
+      const res = await api.put(`/api/accounts/${id}`, payload, true);
+      alert(`✅ ${res.message || 'Cập nhật tài khoản thành công!'}`);
+      closeModal('adminEditAccountModal');
       await loadAdminAccounts();
     } catch (err) {
-      alert(err.message || 'Cập nhật thất bại');
+      alert(`❌ Lỗi cập nhật: ${err.message || 'Không thể lưu thay đổi'}`);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalText;
     }
   });
 
