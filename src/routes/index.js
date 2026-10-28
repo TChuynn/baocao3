@@ -1,7 +1,7 @@
 const express = require('express');
 const { login, register, getProfile, listAccounts, createAccount, updateAccountRole } = require('../controllers/authController');
 const { listEvents, getEventById, createEvent, updateEvent, deleteEvent } = require('../controllers/eventController');
-const { generateNotification, summarizeFeedback, chatbot } = require('../controllers/aiController');
+const { generateNotification, summarizeFeedback, chatbot, broadcastNotification } = require('../controllers/aiController');
 const { authMiddleware } = require('../middleware/auth');
 const {
   getDashboardSummary,
@@ -75,6 +75,7 @@ router.get('/api/feedback', listFeedbacks);
 
 // AI Services
 router.post('/api/ai/generate-notification', authMiddleware(['BanToChuc', 'QuanTriVien']), generateNotification);
+router.post('/api/ai/broadcast-notification', authMiddleware(['BanToChuc', 'QuanTriVien']), broadcastNotification);
 router.post('/api/ai/summarize-feedback', authMiddleware(['BanToChuc', 'QuanTriVien']), summarizeFeedback);
 router.post('/api/ai/chatbot', chatbot);
 

@@ -9,6 +9,13 @@ const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
   db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows || []));
 });
 
+const dbRun = (sql, params = []) => new Promise((resolve, reject) => {
+  db.run(sql, params, function (err) {
+    if (err) reject(err);
+    else resolve({ lastID: this.lastID, changes: this.changes });
+  });
+});
+
 /**
  * Call Google Gemini API (Interactions API /v1beta/interactions) using native fetch
  * Supports both standard prompt input and dedicated system_instruction
@@ -349,4 +356,137 @@ exports.chatbot = async (req, res) => {
     });
   }
 };
+
+/**
+ * Gửi thông báo do AI sinh ra tới toàn bộ người tham dự của các sự kiện được BTC lựa chọn
+ */
+exports.broadcastNotification = async (req, res) => {
+  const { eventIds, title, content, type = 'MoiThamDu' } = req.body;
+
+  if (!eventIds || !Array.isArray(eventIds) || eventIds.length === 0) {
+    return res.status(400).json({ message: 'Vui lòng chọn ít nhất một sự kiện để gửi thông báo.' });
+  }
+
+  if (!content || !content.trim()) {
+    return res.status(400).json({ message: 'Nội dung thông báo không được để trống.' });
+  }
+
+  try {
+    // 1. Lấy thông tin các sự kiện đã chọn
+    const placeholders = eventIds.map(() => '?').join(',');
+    const events = await dbAll(
+      `SELECT id, tenSuKien, maSuKien, diaDiem, ngayBatDau, ngayKetThuc 
+       FROM SuKien 
+       WHERE id IN (${placeholders})`,
+      eventIds
+    );
+
+    if (!events || events.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy sự kiện nào tương ứng.' });
+    }
+
+    const eventNames = events.map(e => e.tenSuKien);
+
+    // 2. Lấy danh sách người tham dự đã đăng ký các sự kiện này
+    const registrations = await dbAll(
+      `SELECT DISTINCT n.id as nguoiThamDuId, n.hoTen, n.email, n.soDienThoai,
+              s.id as suKienId, s.tenSuKien
+       FROM DangKy d
+       JOIN NguoiThamDu n ON d.nguoiThamDuId = n.id
+       JOIN SuKien s ON d.suKienId = s.id
+       WHERE d.suKienId IN (${placeholders})
+         AND d.trangThai != 'Huy'
+         AND n.email IS NOT NULL AND n.email != ''`,
+      eventIds
+    );
+
+    if (!registrations || registrations.length === 0) {
+      return res.status(400).json({ 
+        message: 'Các sự kiện đã chọn hiện chưa có người tham dự nào đăng ký vé hợp lệ.',
+        totalRecipients: 0
+      });
+    }
+
+    // 3. Gom nhóm theo email người nhận để không gửi trùng lặp
+    const recipientsMap = new Map();
+    for (const reg of registrations) {
+      const email = (reg.email || '').trim().toLowerCase();
+      if (!email) continue;
+      if (!recipientsMap.has(email)) {
+        recipientsMap.set(email, {
+          name: reg.hoTen || 'Người tham dự',
+          email: reg.email.trim(),
+          events: []
+        });
+      }
+      const entry = recipientsMap.get(email);
+      if (!entry.events.includes(reg.tenSuKien)) {
+        entry.events.push(reg.tenSuKien);
+      }
+    }
+
+    const recipients = Array.from(recipientsMap.values());
+    const finalTitle = title && title.trim() ? title.trim() : `Thông báo sự kiện: ${eventNames.slice(0, 2).join(', ')}`;
+
+    // 4. Lưu thông báo vào cơ sở dữ liệu (bảng ThongBao) cho từng sự kiện
+    const userId = req.user?.id || 1;
+    for (const ev of events) {
+      const maThongBao = `NOTI-BC-${Date.now()}-${ev.id}`;
+      try {
+        await dbRun(
+          `INSERT INTO ThongBao (maThongBao, suKienId, tieuDe, noiDung, loaiThongBao, nguoiGuiId)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [maThongBao, ev.id, finalTitle, content.trim(), type, userId]
+        );
+      } catch (dbErr) {
+        console.warn(`[Broadcast] Không thể lưu ThongBao cho sự kiện ${ev.id}:`, dbErr.message);
+      }
+    }
+
+    // 5. Gửi email hàng loạt tới các người tham dự
+    const { buildBroadcastEmailHtml, sendEmail } = require('../services/notificationEmailService');
+    const emailResults = [];
+    let successCount = 0;
+
+    for (const recipient of recipients) {
+      const emailHtml = buildBroadcastEmailHtml({
+        attendeeName: recipient.name,
+        eventNames: recipient.events,
+        title: finalTitle,
+        content: content.trim(),
+        type: type
+      });
+
+      try {
+        const sendRes = await sendEmail({
+          to: recipient.email,
+          subject: `[AI EventHub] ${finalTitle}`,
+          html: emailHtml,
+          text: content.trim()
+        });
+        emailResults.push({ recipient: recipient.email, status: 'ok', detail: sendRes });
+        if (sendRes.sent || sendRes.simulated) successCount++;
+      } catch (err) {
+        console.error(`[Broadcast] Lỗi gửi email tới ${recipient.email}:`, err.message);
+        emailResults.push({ recipient: recipient.email, status: 'error', error: err.message });
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: `Đã gửi thông báo thành công tới ${successCount}/${recipients.length} người tham dự của ${events.length} sự kiện.`,
+      totalRecipients: recipients.length,
+      successCount,
+      events: eventNames,
+      recipients: recipients.map(r => ({ name: r.name, email: r.email, events: r.events }))
+    });
+
+  } catch (error) {
+    console.error('[Broadcast Error]', error);
+    return res.status(500).json({
+      message: 'Lỗi khi gửi thông báo tới người tham dự: ' + error.message
+    });
+  }
+};
+
 
