@@ -125,6 +125,34 @@ function closeModal(id) {
   if (modal) modal.classList.add('hidden');
 }
 
+// ================= AI CHATBOT HISTORY RESET =================
+/**
+ * Resets message history and input fields across all AI Chatbot interfaces
+ * (Landing Page chat teaser, Attendee portal fullpage chat, and Floating Chatbot widget)
+ */
+function resetAiChatHistory() {
+  const landingChat = document.getElementById('landingChatMessages');
+  if (landingChat) {
+    landingChat.innerHTML = '<div class="msg bot">Xin chào! Bạn quan tâm đến sự kiện nào hoặc cần hỗ trợ gì về lịch trình, vé tham dự?</div>';
+  }
+  const landingInput = document.getElementById('landingChatInput');
+  if (landingInput) landingInput.value = '';
+
+  const fullpageChat = document.getElementById('fullpageChatMessages');
+  if (fullpageChat) {
+    fullpageChat.innerHTML = '<div class="msg bot">Xin chào bạn! Tôi là Trợ lý AI của AI EventHub. Bạn có thắc mắc gì về thời gian, địa điểm, các phiên workshop hay cách thức đăng ký vé không?</div>';
+  }
+  const fullpageInput = document.getElementById('fullpageChatInput');
+  if (fullpageInput) fullpageInput.value = '';
+
+  const widgetChat = document.getElementById('chatMessages');
+  if (widgetChat) {
+    widgetChat.innerHTML = '<div class="msg bot">Chào bạn! Tôi có thể hỗ trợ giải đáp về sự kiện, diễn giả, lịch trình và quy định check-in.</div>';
+  }
+  const widgetInput = document.getElementById('chatWidgetInput');
+  if (widgetInput) widgetInput.value = '';
+}
+
 // ================= STRICT ROLE-BASED VIEW CONTROL =================
 /**
  * Applies the view strictly matching the authenticated user's role.
@@ -134,6 +162,9 @@ function closeModal(id) {
  *   - Renders ONLY their authorized portal (Admin, BTC, Staff, Accountant, Attendee).
  */
 async function applyUserSession(user) {
+  // Clear previous chat history whenever user session changes or logs out
+  resetAiChatHistory();
+
   state.currentUser = user;
 
   // 1. Hide ALL viewports first
@@ -1297,6 +1328,7 @@ function setupEventListeners() {
       if (confirm('Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?')) {
         localStorage.removeItem('event_token');
         localStorage.removeItem('event_user');
+        resetAiChatHistory();
         applyUserSession(null);
       }
     } else {
