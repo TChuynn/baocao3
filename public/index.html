@@ -770,9 +770,12 @@
                 </div>
               </div>
 
-              <div class="camera-actions mt-3">
-                <button class="btn btn-accent" id="btnToggleCamera">Bật Camera Quét QR</button>
-                <button class="btn btn-outline" id="btnStopCamera" style="display:none;">Tắt Camera</button>
+              <div class="camera-actions mt-3" style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn btn-accent" id="btnToggleCamera">📷 Bật Camera Quét Siêu Nhạy</button>
+                <button class="btn btn-outline" id="btnStopCamera" style="display:none;">⏹️ Tắt Camera</button>
+                <input type="file" id="qrFileInput" accept="image/*" style="display:none;" />
+                <button class="btn btn-outline" id="btnUploadQrImage" type="button">📁 Tải ảnh QR / File ảnh</button>
+                <div id="qr-reader-temp" style="display:none;"></div>
               </div>
 
               <!-- Manual code input fallback -->

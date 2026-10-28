@@ -675,12 +675,26 @@ async function loadStaffCheckinData(search = '', status = '') {
 }
 
 async function processCheckinCode(code) {
+  let cleanCode = String(code || '').trim();
+  if (!cleanCode) return;
+
+  // Xử lý nếu QR chứa URL hoặc query param
+  if (cleanCode.includes('code=')) {
+    cleanCode = cleanCode.split('code=')[1].split('&')[0];
+  } else if (cleanCode.includes('/')) {
+    const parts = cleanCode.split('/');
+    const last = parts[parts.length - 1];
+    if (last.startsWith('QR-') || last.startsWith('REG-')) {
+      cleanCode = last;
+    }
+  }
+
   const resultCard = document.getElementById('checkinResultCard');
   const resultBadge = document.getElementById('checkinStatusBadge');
   const detailsBox = document.getElementById('resultDetails');
 
   try {
-    const res = await api.post('/api/checkin', { maVe: code }, true);
+    const res = await api.post('/api/checkin', { maVe: cleanCode }, true);
 
     playTone(880, 0.15);
 
@@ -761,15 +775,67 @@ function initCameraScanner() {
       btnToggle.style.display = 'none';
       btnStop.style.display = 'inline-flex';
 
-      state.html5QrScanner = new Html5Qrcode("qr-reader");
-      await state.html5QrScanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          processCheckinCode(decodedText);
+      // 1. Khởi tạo Html5Qrcode với BarcodeDetector gốc của trình duyệt (tăng tốc phần cứng, đọc nhạy hơn)
+      state.html5QrScanner = new Html5Qrcode("qr-reader", {
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
         },
-        (errorMessage) => {}
-      );
+        verbose: false
+      });
+
+      // 2. Khung quét rộng 85% khung hình giúp bắt mã ở phạm vi rộng hơn nhiều, không bị cắt viền
+      const qrboxFunction = (viewfinderWidth, viewfinderHeight) => {
+        const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+        const qrboxSize = Math.max(Math.floor(minEdge * 0.85), 260);
+        return {
+          width: qrboxSize,
+          height: qrboxSize
+        };
+      };
+
+      let lastScannedText = '';
+      let lastScanTime = 0;
+
+      const onScanSuccess = (decodedText) => {
+        const clean = String(decodedText || '').trim();
+        const now = Date.now();
+        // Chống lặp trong 2.5s cho cùng 1 mã
+        if (clean === lastScannedText && now - lastScanTime < 2500) {
+          return;
+        }
+        lastScannedText = clean;
+        lastScanTime = now;
+        processCheckinCode(clean);
+      };
+
+      // 3. Cấu hình quét siêu nhạy: 25 FPS, tăng tốc phần cứng
+      const scanConfig = {
+        fps: 25,
+        qrbox: qrboxFunction,
+        aspectRatio: 1.0,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        }
+      };
+
+      // 4. Thử kích hoạt camera HD 720p trước, nếu thiết bị không hỗ trợ thì fallback camera mặc định
+      try {
+        await state.html5QrScanner.start(
+          { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+          scanConfig,
+          onScanSuccess,
+          () => {}
+        );
+      } catch (camErr) {
+        console.warn('Fallback camera standard:', camErr);
+        await state.html5QrScanner.start(
+          { facingMode: "user" },
+          scanConfig,
+          onScanSuccess,
+          () => {}
+        );
+      }
+
       state.isScanning = true;
     } catch (err) {
       alert('Không thể mở camera: ' + (err.message || 'Vui lòng cấp quyền camera'));
@@ -781,13 +847,41 @@ function initCameraScanner() {
 
   btnStop?.addEventListener('click', async () => {
     if (state.html5QrScanner && state.isScanning) {
-      await state.html5QrScanner.stop();
+      try {
+        await state.html5QrScanner.stop();
+      } catch (e) {}
       state.html5QrScanner = null;
       state.isScanning = false;
     }
     placeholder.style.display = 'flex';
     btnToggle.style.display = 'inline-flex';
     btnStop.style.display = 'none';
+  });
+
+  // 5. Hỗ trợ quét trực tiếp từ ảnh chụp QR trên máy tính/điện thoại
+  const fileInput = document.getElementById('qrFileInput');
+  const btnUpload = document.getElementById('btnUploadQrImage');
+
+  btnUpload?.addEventListener('click', () => fileInput?.click());
+
+  fileInput?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const fileScanner = new Html5Qrcode("qr-reader-temp", {
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+        verbose: false
+      });
+      const decodedText = await fileScanner.scanFile(file, true);
+      if (decodedText) {
+        processCheckinCode(decodedText);
+      }
+    } catch (err) {
+      alert('Không đọc được mã QR từ ảnh: ' + (err.message || 'Vui lòng kiểm tra lại góc chụp hoặc độ nét của ảnh'));
+    } finally {
+      e.target.value = '';
+    }
   });
 }
 
