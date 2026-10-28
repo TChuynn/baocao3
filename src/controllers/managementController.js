@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { processRegistrationNotificationAndEmail } = require('../services/notificationEmailService');
 
 exports.getDashboardSummary = (req, res) => {
   db.get('SELECT COUNT(*) AS totalEvents FROM SuKien', (err, eventCount) => {
@@ -114,7 +115,7 @@ exports.registerGuest = (req, res) => {
   const targetType = (ticketType || 'Standard').trim();
 
   // 1. Kiểm tra sự kiện có tồn tại không
-  db.get('SELECT id, tenSuKien FROM SuKien WHERE id = ?', [Number(eventId)], (eventErr, event) => {
+  db.get('SELECT id, maSuKien, tenSuKien, moTa, loaiSuKien, ngayBatDau, ngayKetThuc, diaDiem FROM SuKien WHERE id = ?', [Number(eventId)], (eventErr, event) => {
     if (eventErr) return res.status(500).json({ message: 'Database error', error: eventErr.message });
     if (!event) return res.status(400).json({ message: 'Sự kiện không tồn tại' });
 
@@ -200,15 +201,38 @@ exports.registerGuest = (req, res) => {
           `INSERT INTO DangKy (maDangKy, nguoiThamDuId, suKienId, hangVeId, soLuong, tongTien, trangThai, qrCode)
            VALUES (?, ?, ?, ?, 1, ?, 'DaXacNhan', ?)`,
           [maDangKy, guestId, Number(eventId), tier.id, ticketPrice, qrCode],
-          function (regErr) {
+          async function (regErr) {
             if (regErr) return res.status(400).json({ message: 'Không thể lưu đăng ký', error: regErr.message });
+            
+            const lastInsertedId = this.lastID;
+
+            // Kích hoạt AI tự động sinh thông báo & gửi email xác nhận + nhắc lịch
+            let notificationResult = null;
+            try {
+              notificationResult = await processRegistrationNotificationAndEmail({
+                guest: {
+                  id: guestId,
+                  hoTen: cleanName,
+                  email: cleanEmail,
+                  soDienThoai: cleanPhone
+                },
+                event,
+                ticketTier: tier,
+                maDangKy,
+                qrCode
+              });
+            } catch (notiErr) {
+              console.warn('[RegisterGuest] Lỗi quy trình thông báo AI:', notiErr);
+            }
+
             return res.status(201).json({
               message: 'Đăng ký thành công',
               maDangKy,
               qrCode,
               ticketType: tier.tenHangVe,
               guestId,
-              ticketId: this.lastID
+              ticketId: lastInsertedId,
+              notification: notificationResult
             });
           }
         );

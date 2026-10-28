@@ -64,6 +64,8 @@ async function callGemini(prompt) {
   return answer || '';
 }
 
+exports.callGemini = callGemini;
+
 function formatNotification(type, message, eventName) {
   const templates = {
     MoiThamDu: `Chào bạn,\n\nBạn được mời tham dự ${eventName}.\n${message}\n\nTrân trọng, Ban tổ chức.`,

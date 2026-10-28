@@ -1693,17 +1693,62 @@ function setupEventListeners() {
     const formEl = e.currentTarget;
     const form = new FormData(formEl);
     const email = form.get('email');
+    const eventId = Number(form.get('eventId'));
+    const submitBtn = formEl.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn ? submitBtn.innerHTML : 'Xác nhận đặt vé & Nhận mã QR';
+
     try {
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '🤖 AI đang soạn thông báo & gửi email...';
+      }
+
       const res = await api.post('/api/registrations', {
-        eventId: Number(form.get('eventId')),
+        eventId,
         fullName: form.get('fullName'),
         email,
         phone: form.get('phone'),
         ticketType: form.get('ticketType')
       });
-      alert(`Đăng ký thành công!\nMã vé: ${res.maDangKy || 'REG'}\nMã QR: ${res.qrCode || 'Đã sinh vé'}\nHạng vé: ${res.ticketType || 'VIP'}`);
+
       closeModal('bookTicketModal');
       formEl?.reset();
+
+      // Hiển thị modal thông báo thành công kèm thông điệp AI & trạng thái email
+      const successModal = document.getElementById('ticketSuccessModal');
+      if (successModal) {
+        const eventObj = state.events.find(ev => ev.id === eventId);
+        document.getElementById('successTicketEventName').textContent = eventObj?.tenSuKien || res.notification?.title || 'Sự kiện AI EventHub';
+        document.getElementById('successMaDangKy').textContent = res.maDangKy || 'REG';
+        document.getElementById('successTicketType').textContent = res.ticketType || 'VIP';
+
+        const qrContainer = document.getElementById('successQrContainer');
+        if (qrContainer) {
+          qrContainer.innerHTML = `
+            <img src="${buildQrUrl(res.qrCode || res.maDangKy)}" width="110" height="110" style="border-radius: 6px; border: 1px solid #cbd5e1; display: block; margin: 0 auto;" />
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; font-weight: 600;">${res.qrCode || res.maDangKy}</div>
+          `;
+        }
+
+        const emailBadge = document.getElementById('successEmailBadge');
+        const emailDesc = document.getElementById('successEmailDesc');
+        const emailRes = res.notification?.emailResult;
+
+        if (emailRes?.sent) {
+          emailBadge.textContent = 'ĐÃ GỬI VÀO HÒM THƯ';
+          emailBadge.style.background = '#10b981';
+          emailDesc.innerHTML = `✅ Thư xác nhận đăng ký cùng mã QR và lịch trình chi tiết đã được gửi đến email <strong>${email}</strong>.`;
+        } else {
+          emailBadge.textContent = 'ĐÃ TỰ ĐỘNG SINH & SẴN SÀNG';
+          emailBadge.style.background = '#6366f1';
+          emailDesc.innerHTML = `📨 Hệ thống AI đã tạo trọn bộ thông báo và nhắc lịch gửi tới <strong>${email}</strong>. <em>(Mẹo: Nhập SMTP_USER và SMTP_PASS vào file .env để chuyển tiếp trực tiếp vào hộp thư Gmail cá nhân).</em>`;
+        }
+
+        document.getElementById('successAiContent').textContent = res.notification?.aiContent || 'Thông báo đăng ký thành công đã được lưu vào hệ thống.';
+        openModal('ticketSuccessModal');
+      } else {
+        alert(`🎉 Đăng ký thành công!\n- Mã vé: ${res.maDangKy}\n- Mã QR: ${res.qrCode}\n- Hạng vé: ${res.ticketType}\n\n🤖 AI đã tự động soạn thông báo xác nhận và gửi email nhắc lịch trình tới: ${email}`);
+      }
 
       const filterInput = document.getElementById('attendeeEmailFilter');
       if (filterInput) filterInput.value = email;
@@ -1716,6 +1761,11 @@ function setupEventListeners() {
       await loadAttendeeTickets(email);
     } catch (err) {
       alert(err.message || 'Đặt vé thất bại');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+      }
     }
   });
 
