@@ -14,7 +14,10 @@ const api = {
     const res = await fetch(path, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Yêu cầu không thành công');
+      const error = new Error(err.message || 'Yêu cầu không thành công');
+      error.status = res.status;
+      error.data = err;
+      throw error;
     }
     return res.json();
   },
@@ -33,7 +36,10 @@ const api = {
     const text = await res.text();
     const data = text ? JSON.parse(text) : {};
     if (!res.ok) {
-      throw new Error(data.message || 'Yêu cầu không thành công');
+      const error = new Error(data.message || 'Yêu cầu không thành công');
+      error.status = res.status;
+      error.data = data;
+      throw error;
     }
     return data;
   },
@@ -52,7 +58,10 @@ const api = {
     const text = await res.text();
     const data = text ? JSON.parse(text) : {};
     if (!res.ok) {
-      throw new Error(data.message || 'Yêu cầu không thành công');
+      const error = new Error(data.message || 'Yêu cầu không thành công');
+      error.status = res.status;
+      error.data = data;
+      throw error;
     }
     return data;
   },
@@ -71,7 +80,10 @@ const api = {
     const text = await res.text();
     const data = text ? JSON.parse(text) : {};
     if (!res.ok) {
-      throw new Error(data.message || 'Yêu cầu không thành công');
+      const error = new Error(data.message || 'Yêu cầu không thành công');
+      error.status = res.status;
+      error.data = data;
+      throw error;
     }
     return data;
   },
@@ -86,7 +98,10 @@ const api = {
     const text = await res.text();
     const data = text ? JSON.parse(text) : {};
     if (!res.ok) {
-      throw new Error(data.message || 'Yêu cầu xóa không thành công');
+      const error = new Error(data.message || 'Yêu cầu xóa không thành công');
+      error.status = res.status;
+      error.data = data;
+      throw error;
     }
     return data;
   }
@@ -137,11 +152,110 @@ function buildQrUrl(code) {
 function openModal(id) {
   const modal = document.getElementById(id);
   if (modal) modal.classList.remove('hidden');
+  if (id === 'authModal') {
+    if (!loginCountdownInterval) {
+      clearLoginAlert();
+    }
+  }
 }
 
 function closeModal(id) {
   const modal = document.getElementById(id);
   if (modal) modal.classList.add('hidden');
+  if (id === 'authModal' && !loginCountdownInterval) {
+    clearLoginAlert();
+  }
+}
+
+let loginCountdownInterval = null;
+
+function clearLoginAlert() {
+  if (loginCountdownInterval) {
+    clearInterval(loginCountdownInterval);
+    loginCountdownInterval = null;
+  }
+  const alertBox = document.getElementById('loginAlertBox');
+  const submitBtn = document.getElementById('btnLoginSubmit');
+  if (alertBox) {
+    alertBox.style.display = 'none';
+    alertBox.innerHTML = '';
+  }
+  if (submitBtn) submitBtn.disabled = false;
+}
+
+function showLoginAlert(message, type = 'error', remainingSeconds = 0) {
+  const alertBox = document.getElementById('loginAlertBox');
+  const submitBtn = document.getElementById('btnLoginSubmit');
+  if (!alertBox) {
+    alert(message);
+    return;
+  }
+
+  if (loginCountdownInterval) {
+    clearInterval(loginCountdownInterval);
+    loginCountdownInterval = null;
+  }
+
+  alertBox.style.display = 'block';
+
+  if (type === 'lock') {
+    alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+    alertBox.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+    alertBox.style.color = '#fca5a5';
+    if (submitBtn) submitBtn.disabled = true;
+
+    let sec = remainingSeconds;
+    const renderLockMessage = () => {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      const timeStr = `${m}:${s < 10 ? '0' : ''}${s}`;
+      alertBox.innerHTML = `
+        <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+          <span>⛔</span> <span>Tài khoản tạm thời bị khóa</span>
+        </div>
+        <div>${message}</div>
+        <div style="margin-top: 8px; font-weight: 600; color: #f87171; display: flex; align-items: center; gap: 6px;">
+          <span>⏳</span> Thử lại sau: <span style="font-family: monospace; font-size: 1.1rem; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 4px;">${timeStr}</span>
+        </div>
+      `;
+    };
+    renderLockMessage();
+
+    loginCountdownInterval = setInterval(() => {
+      sec--;
+      if (sec <= 0) {
+        clearInterval(loginCountdownInterval);
+        loginCountdownInterval = null;
+        if (submitBtn) submitBtn.disabled = false;
+        alertBox.style.background = 'rgba(16, 185, 129, 0.15)';
+        alertBox.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+        alertBox.style.color = '#6ee7b7';
+        alertBox.innerHTML = '✅ Thời gian tạm khóa 3 phút đã kết thúc! Bạn có thể thử đăng nhập lại ngay bây giờ.';
+      } else {
+        renderLockMessage();
+      }
+    }, 1000);
+  } else if (type === 'warning') {
+    alertBox.style.background = 'rgba(245, 158, 11, 0.15)';
+    alertBox.style.border = '1px solid rgba(245, 158, 11, 0.4)';
+    alertBox.style.color = '#fde68a';
+    alertBox.innerHTML = `
+      <div style="font-weight: 600; display: flex; align-items: center; gap: 6px;">
+        <span>⚠️</span> <span>${message}</span>
+      </div>
+    `;
+    if (submitBtn) submitBtn.disabled = false;
+  } else {
+    alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+    alertBox.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+    alertBox.style.color = '#fca5a5';
+    alertBox.innerHTML = `
+      <div style="font-weight: 600; display: flex; align-items: center; gap: 6px;">
+        <span>❌</span> <span>${message}</span>
+      </div>
+    `;
+    if (submitBtn) submitBtn.disabled = false;
+  }
 }
 
 // ================= AI CHATBOT HISTORY RESET =================
@@ -272,6 +386,57 @@ async function applyUserSession(user) {
   }
 }
 
+// Filter states for Events Exploration
+const attendeeEventFilters = {
+  keyword: '',
+  status: 'all',
+  category: 'all',
+  sortBy: 'date-asc'
+};
+
+const landingEventFilters = {
+  keyword: '',
+  status: 'all'
+};
+
+function populateAttendeeCategoryFilter() {
+  const sel = document.getElementById('attendeeCategoryFilter');
+  if (!sel) return;
+  const curVal = sel.value || 'all';
+  const categories = Array.from(new Set((state.events || []).map(e => e.loaiSuKien).filter(Boolean)));
+  sel.innerHTML = '<option value="all">Tất cả chủ đề</option>' +
+    categories.map(c => `<option value="${c}">${c}</option>`).join('');
+  if (curVal && categories.includes(curVal)) {
+    sel.value = curVal;
+  }
+}
+
+function resetAttendeeEventFilters() {
+  attendeeEventFilters.keyword = '';
+  attendeeEventFilters.status = 'all';
+  attendeeEventFilters.category = 'all';
+  attendeeEventFilters.sortBy = 'date-asc';
+
+  const input = document.getElementById('attendeeEventSearchInput');
+  if (input) input.value = '';
+
+  const clearBtn = document.getElementById('btnAttendeeClearSearch');
+  if (clearBtn) clearBtn.classList.add('hidden');
+
+  const catSel = document.getElementById('attendeeCategoryFilter');
+  if (catSel) catSel.value = 'all';
+
+  const sortSel = document.getElementById('attendeeSortFilter');
+  if (sortSel) sortSel.value = 'date-asc';
+
+  document.querySelectorAll('#attendeeStatusPills .status-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.status === 'all');
+  });
+
+  loadAttendeeEvents();
+}
+window.resetAttendeeEventFilters = resetAttendeeEventFilters;
+
 /**
  * Loads events dynamically for the Public Landing Page showcase grid
  */
@@ -280,20 +445,51 @@ async function loadLandingPage() {
 
   const grid = document.getElementById('landingEventsGrid');
   if (grid) {
-    if (!state.events || state.events.length === 0) {
-      grid.innerHTML = '<div class="text-center" style="grid-column: 1/-1; padding: 40px; color: var(--text-muted);">Hiện tại chưa có sự kiện nào được công bố.</div>';
+    let list = [...(state.events || [])];
+    const kw = (landingEventFilters.keyword || '').trim().toLowerCase();
+    if (kw) {
+      list = list.filter(ev =>
+        (ev.tenSuKien && ev.tenSuKien.toLowerCase().includes(kw)) ||
+        (ev.moTa && ev.moTa.toLowerCase().includes(kw)) ||
+        (ev.diaDiem && ev.diaDiem.toLowerCase().includes(kw)) ||
+        (ev.loaiSuKien && ev.loaiSuKien.toLowerCase().includes(kw)) ||
+        (ev.maSuKien && ev.maSuKien.toLowerCase().includes(kw))
+      );
+    }
+    if (landingEventFilters.status && landingEventFilters.status !== 'all') {
+      list = list.filter(ev => ev.trangThai === landingEventFilters.status);
+    }
+
+    if (!list || list.length === 0) {
+      grid.innerHTML = `
+        <div class="filter-empty-state" style="grid-column: 1/-1;">
+          <div style="font-size: 2.8rem; margin-bottom: 8px;">🔍</div>
+          <h3>Không tìm thấy sự kiện nào</h3>
+          <p class="text-muted">Không có sự kiện nào khớp với tiêu chí tìm kiếm của bạn.</p>
+        </div>
+      `;
     } else {
-      grid.innerHTML = state.events.map(ev => {
+      grid.innerHTML = list.map(ev => {
         const isLive = ev.trangThai === 'DangDienRa';
         const statusLabel = isLive ? 'Đang diễn ra' : (ev.trangThai === 'SapDienRa' ? 'Sắp diễn ra' : 'Đã kết thúc');
         const statusClass = isLive ? 'active' : 'upcoming';
         const banner = ev.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87';
         const cleanTitle = (ev.tenSuKien || '').replace(/'/g, "\\'");
+        const isSoldOut = ev.soVeConLai !== undefined && ev.soVeConLai <= 0;
+        const remainingBadge = isSoldOut
+          ? '<span class="badge" style="background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.5); padding: 3px 8px; border-radius: 4px; font-weight: 700;">🔴 Hết vé</span>'
+          : (ev.soVeConLai !== undefined && ev.soVeConLai <= 10
+              ? `<span class="badge" style="background: rgba(245, 158, 11, 0.25); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.5); padding: 3px 8px; border-radius: 4px; font-weight: 700;">⚡ Sắp hết (Còn ${ev.soVeConLai} vé)</span>`
+              : (ev.soVeConLai !== undefined
+                  ? `<span class="badge" style="background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.5); padding: 3px 8px; border-radius: 4px; font-weight: 700;">🟢 Còn ${ev.soVeConLai} vé</span>`
+                  : ''));
+        const priceLabel = ev.giaVeTu ? `Vé từ ${formatCurrency(ev.giaVeTu)}` : 'Vé từ 790.000 đ';
 
         return `
           <div class="landing-event-card">
             <div class="landing-event-banner" style="background-image: url('${banner}');">
               <span class="landing-event-status ${statusClass}">${statusLabel}</span>
+              ${remainingBadge ? `<div style="position: absolute; bottom: 12px; left: 12px;">${remainingBadge}</div>` : ''}
             </div>
             <div class="landing-event-body">
               <span class="landing-event-category">🌐 ${ev.loaiSuKien || 'Hội thảo công nghệ'}</span>
@@ -301,13 +497,22 @@ async function loadLandingPage() {
               <div class="landing-event-meta">
                 <div>📅 <strong>Thời gian:</strong> ${formatDate(ev.ngayBatDau)}</div>
                 <div>📍 <strong>Địa điểm:</strong> ${ev.diaDiem || 'Trung tâm Hội nghị Quốc gia'}</div>
+                ${ev.soVeConLai !== undefined ? `
+                  <div>🎫 <strong>Tình trạng vé:</strong> ${isSoldOut ? '<span style="color: #f87171; font-weight: 700;">Đã hết vé</span>' : `<span style="color: #34d399; font-weight: 700;">Còn lại ${ev.soVeConLai} / ${ev.tongSoVe} vé</span>`}</div>
+                ` : ''}
               </div>
               <p class="landing-event-desc">${ev.moTa || 'Sự kiện công nghệ và đổi mới sáng tạo thu hút hàng đầu.'}</p>
               <div class="landing-event-footer">
-                <span style="font-weight: 700; color: #34d399; font-size: 0.95rem;">Vé từ 790.000 đ</span>
-                <button class="btn btn-primary btn-sm" onclick="openBookTicketModal(${ev.id}, '${cleanTitle}')">
-                  🎟️ Đặt vé ngay
-                </button>
+                <span style="font-weight: 700; color: #34d399; font-size: 0.95rem;">${priceLabel}</span>
+                ${isSoldOut ? `
+                  <button class="btn btn-secondary btn-sm" disabled style="opacity: 0.6; cursor: not-allowed;">
+                    🔴 Đã hết vé
+                  </button>
+                ` : `
+                  <button class="btn btn-primary btn-sm" onclick="openBookTicketModal(${ev.id}, '${cleanTitle}')">
+                    🎟️ Đặt vé ngay
+                  </button>
+                `}
               </div>
             </div>
           </div>
@@ -462,11 +667,20 @@ function renderAdminAccountsTable(accounts) {
 
   tbody.innerHTML = (accounts || []).map(acc => {
     const isSelf = state.currentUser?.id === acc.id;
-    const isLocked = acc.trangThai === 'Khoa';
+    const isPermLocked = acc.trangThai === 'Khoa';
+    const isTempLocked = acc.khoaTamDen && new Date(acc.khoaTamDen) > new Date();
+    const isLocked = isPermLocked || isTempLocked;
     const roleBadge = ROLE_BADGES[acc.vaiTro] || `<span class="badge badge-info">${acc.vaiTro}</span>`;
-    const statusBadge = isLocked 
-      ? '<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);">🔴 Đã khóa</span>'
-      : '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">🟢 Hoạt động</span>';
+    
+    let statusBadge;
+    if (isPermLocked) {
+      statusBadge = '<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);">🔴 Đã khóa</span>';
+    } else if (isTempLocked) {
+      const remainingMin = Math.max(1, Math.ceil((new Date(acc.khoaTamDen) - new Date()) / 60000));
+      statusBadge = `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);" title="Đăng nhập sai quá 5 lần liên tiếp. Tạm khóa trong 3 phút.">⏳ Tạm khóa (${remainingMin}p)</span>`;
+    } else {
+      statusBadge = '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">🟢 Hoạt động</span>';
+    }
 
     return `
       <tr>
@@ -602,22 +816,49 @@ async function loadBtcEvents() {
 async function loadBtcSessions() {
   try {
     const sessions = await api.get('/api/sessions');
+    state.allSessions = sessions;
     document.getElementById('btcSessionCount').textContent = `${sessions.length} phiên`;
     const list = document.getElementById('btcSessionList');
     if (list) {
-      list.innerHTML = sessions.map(s => `
-        <div class="feed-item" style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: var(--radius-md); margin-bottom: 10px;">
-          <div class="flex-between">
-            <strong style="color: #60a5fa;">${s.tenPhien}</strong>
-            <span class="badge badge-info">${s.maPhien}</span>
+      list.innerHTML = sessions.map(s => {
+        const speakers = Array.isArray(s.dienGia) ? s.dienGia : [];
+        const speakersHtml = speakers.length > 0
+          ? speakers.map(sp => `
+              <span class="session-speaker-tag" title="${sp.chuyenNganh || ''}">
+                <img src="${sp.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2'}" alt="${sp.tenDienGia}" />
+                ${sp.tenDienGia}
+              </span>
+            `).join('')
+          : '<span class="text-muted" style="font-size: 0.8rem; font-style: italic;">Chưa gán diễn giả</span>';
+
+        return `
+          <div class="feed-item" style="padding: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-md); margin-bottom: 12px;">
+            <div class="flex-between">
+              <strong style="color: #60a5fa; font-size: 0.98rem;">${s.tenPhien}</strong>
+              <span class="badge badge-info">${s.maPhien}</span>
+            </div>
+            <p class="text-muted mt-2" style="font-size: 0.86rem; line-height: 1.4;">${s.moTa || 'Không có mô tả'}</p>
+            
+            <div class="session-speakers-container">
+              <strong style="font-size: 0.82rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+                🎙️ Diễn giả:
+              </strong>
+              ${speakersHtml}
+            </div>
+
+            <div class="flex-between mt-3" style="font-size: 0.82rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;">
+              <div>
+                <span>Phòng: ${s.phong || 'Chính'}</span>
+                <span style="margin: 0 6px;">•</span>
+                <span>⏱️ ${formatDate(s.ngayGio)} (${s.thoiLuong || 60} phút)</span>
+              </div>
+              <button class="btn btn-sm btn-outline" onclick="openAssignSpeakerModal(${s.id})" style="padding: 3px 10px; font-size: 0.8rem; border-color: rgba(99, 102, 241, 0.4); color: #a5b4fc;">
+                🎙️ Gán diễn giả
+              </button>
+            </div>
           </div>
-          <p class="text-muted mt-2" style="font-size: 0.88rem;">${s.moTa || 'Không có mô tả'}</p>
-          <div class="flex-between mt-2" style="font-size: 0.82rem; color: var(--text-muted);">
-            <span>Phòng: ${s.phong || 'Chính'}</span>
-            <span>⏱️ ${formatDate(s.ngayGio)}</span>
-          </div>
-        </div>
-      `).join('') || '<p class="text-muted">Chưa có phiên nội dung nào.</p>';
+        `;
+      }).join('') || '<p class="text-muted">Chưa có phiên nội dung nào.</p>';
     }
   } catch (e) {
     console.warn('Sessions error:', e);
@@ -628,6 +869,14 @@ async function loadBtcSpeakers() {
   try {
     const speakers = await api.get('/api/speakers');
     document.getElementById('btcSpeakerCount').textContent = `${speakers.length} diễn giả`;
+
+    // Populate dropdown in btcSessionForm
+    const sessionSpeakerSelect = document.getElementById('btcSessionSpeakerSelect');
+    if (sessionSpeakerSelect) {
+      sessionSpeakerSelect.innerHTML = '<option value="">-- Chưa gán diễn giả --</option>' +
+        speakers.map(sp => `<option value="${sp.id}">${sp.tenDienGia} (${sp.chuyenNganh || sp.maDienGia})</option>`).join('');
+    }
+
     const list = document.getElementById('btcSpeakerList');
     if (list) {
       list.innerHTML = speakers.map(sp => `
@@ -724,8 +973,9 @@ async function loadStaffCheckinData(search = '', status = '') {
     if (tbody) {
       tbody.innerHTML = regs.map(r => {
         const isChecked = r.trangThai === 'DaCheckIn';
+        const isCancelled = r.trangThai === 'Huy';
         return `
-          <tr>
+          <tr style="${isCancelled ? 'opacity: 0.6; background: rgba(239,68,68,0.04);' : ''}">
             <td>
               <strong>${r.hoTen}</strong>
             </td>
@@ -737,17 +987,25 @@ async function loadStaffCheckinData(search = '', status = '') {
             <td><span class="badge badge-info">${r.tenHangVe}</span></td>
             <td><code>${r.maDangKy}</code></td>
             <td>
-              <span class="badge ${isChecked ? 'badge-success' : 'badge-warning'}">
-                ${isChecked ? 'Đã Check-in' : 'Chưa Check-in'}
-              </span>
-              ${isChecked && r.thoiGianCheckIn ? `<br><small class="text-muted">${formatDate(r.thoiGianCheckIn)}</small>` : ''}
+              ${isCancelled ? `
+                <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);">
+                  Đã Hủy Vé
+                </span>
+              ` : `
+                <span class="badge ${isChecked ? 'badge-success' : 'badge-warning'}">
+                  ${isChecked ? 'Đã Check-in' : 'Chưa Check-in'}
+                </span>
+                ${isChecked && r.thoiGianCheckIn ? `<br><small class="text-muted">${formatDate(r.thoiGianCheckIn)}</small>` : ''}
+              `}
             </td>
             <td>
-              ${isChecked ? `
+              ${isCancelled ? `
+                <span class="text-muted" style="font-size: 0.85rem;">Không khả dụng</span>
+              ` : (isChecked ? `
                 <button class="btn btn-sm btn-outline" onclick="undoCheckin(${r.id})">Hoàn tác</button>
               ` : `
                 <button class="btn btn-sm btn-primary" onclick="quickCheckin('${r.qrCode || r.maDangKy}')">Check-in</button>
-              `}
+              `)}
             </td>
           </tr>
         `;
@@ -1166,27 +1424,109 @@ async function loadAttendeeEvents() {
   const container = document.getElementById('attendeeEventsList');
   if (!container) return;
 
-  container.innerHTML = state.events.map(ev => `
-    <div class="stream-card">
-      <div class="stream-banner" style="background-image: url('${ev.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87'}');">
-        <span class="badge badge-accent" style="position: absolute; top: 12px; left: 12px;">${ev.loaiSuKien}</span>
-        <span class="badge ${ev.trangThai === 'DangDienRa' ? 'badge-success' : 'badge-info'}" style="position: absolute; top: 12px; right: 12px;">${ev.trangThai}</span>
+  populateAttendeeCategoryFilter();
+
+  let list = [...(state.events || [])];
+
+  const kw = (attendeeEventFilters.keyword || '').trim().toLowerCase();
+  if (kw) {
+    list = list.filter(ev =>
+      (ev.tenSuKien && ev.tenSuKien.toLowerCase().includes(kw)) ||
+      (ev.moTa && ev.moTa.toLowerCase().includes(kw)) ||
+      (ev.diaDiem && ev.diaDiem.toLowerCase().includes(kw)) ||
+      (ev.loaiSuKien && ev.loaiSuKien.toLowerCase().includes(kw)) ||
+      (ev.maSuKien && ev.maSuKien.toLowerCase().includes(kw))
+    );
+  }
+
+  if (attendeeEventFilters.status && attendeeEventFilters.status !== 'all') {
+    list = list.filter(ev => ev.trangThai === attendeeEventFilters.status);
+  }
+
+  if (attendeeEventFilters.category && attendeeEventFilters.category !== 'all') {
+    list = list.filter(ev => ev.loaiSuKien === attendeeEventFilters.category);
+  }
+
+  // Sort
+  if (attendeeEventFilters.sortBy === 'date-asc') {
+    list.sort((a, b) => new Date(a.ngayBatDau) - new Date(b.ngayBatDau));
+  } else if (attendeeEventFilters.sortBy === 'date-desc') {
+    list.sort((a, b) => new Date(b.ngayBatDau) - new Date(a.ngayBatDau));
+  } else if (attendeeEventFilters.sortBy === 'price-asc') {
+    list.sort((a, b) => Number(a.giaVeTu || 0) - Number(b.giaVeTu || 0));
+  } else if (attendeeEventFilters.sortBy === 'price-desc') {
+    list.sort((a, b) => Number(b.giaVeTu || 0) - Number(a.giaVeTu || 0));
+  }
+
+  // Counter
+  const counterEl = document.getElementById('attendeeFilterCounter');
+  if (counterEl) {
+    counterEl.innerHTML = `Hiển thị <strong>${list.length}</strong> / ${state.events ? state.events.length : 0} sự kiện`;
+  }
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="filter-empty-state">
+        <div style="font-size: 2.8rem; margin-bottom: 8px;">🔍</div>
+        <h3>Không tìm thấy sự kiện nào phù hợp</h3>
+        <p class="text-muted" style="margin-top: 4px;">
+          ${kw ? `Không có sự kiện nào khớp với từ khóa "<strong>${attendeeEventFilters.keyword}</strong>"` : 'Không có sự kiện nào khớp với bộ lọc trạng thái/chủ đề hiện tại.'}
+        </p>
+        <button class="btn btn-outline btn-sm mt-3" onclick="resetAttendeeEventFilters()">
+          🔄 Xem tất cả sự kiện
+        </button>
       </div>
-      <div class="stream-content">
-        <div>
-          <h3 style="font-size: 1.35rem; font-weight: 700; margin-bottom: 8px;">${ev.tenSuKien}</h3>
-          <p class="event-desc">${ev.moTa || 'Sự kiện hàng đầu về công nghệ và khởi nghiệp.'}</p>
-          <div class="event-meta-row"><span>📍</span> <strong>${ev.diaDiem}</strong></div>
-          <div class="event-meta-row"><span>📅</span> <span>${formatDate(ev.ngayBatDau)}</span></div>
+    `;
+    return;
+  }
+
+  container.innerHTML = list.map(ev => {
+    const isSoldOut = ev.soVeConLai !== undefined && ev.soVeConLai <= 0;
+    const cleanTitle = (ev.tenSuKien || '').replace(/'/g, "\\'");
+    const statusLabel = ev.trangThai === 'DangDienRa' ? 'Đang diễn ra' : (ev.trangThai === 'SapDienRa' ? 'Sắp diễn ra' : 'Đã kết thúc');
+    const statusBadgeClass = ev.trangThai === 'DangDienRa' ? 'badge-success' : (ev.trangThai === 'SapDienRa' ? 'badge-info' : 'badge-secondary');
+
+    let ticketQuotaHtml = '';
+    if (ev.soVeConLai !== undefined) {
+      if (isSoldOut) {
+        ticketQuotaHtml = '<strong style="color: #f87171;">🔴 Đã hết vé tham dự</strong>';
+      } else if (ev.soVeConLai <= 10) {
+        ticketQuotaHtml = `<strong style="color: #fbbf24;">⚡ Sắp hết: Còn ${ev.soVeConLai} / ${ev.tongSoVe} vé</strong>`;
+      } else {
+        ticketQuotaHtml = `<strong style="color: #34d399;">🟢 Còn lại: ${ev.soVeConLai} / ${ev.tongSoVe} vé</strong>`;
+      }
+    }
+
+    return `
+      <div class="stream-card">
+        <div class="stream-banner" style="background-image: url('${ev.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87'}');">
+          <span class="badge badge-accent" style="position: absolute; top: 12px; left: 12px;">${ev.loaiSuKien}</span>
+          <span class="badge ${statusBadgeClass}" style="position: absolute; top: 12px; right: 12px;">${statusLabel}</span>
+          ${isSoldOut ? `<span class="badge badge-danger" style="position: absolute; bottom: 12px; left: 12px; background: rgba(239,68,68,0.85); color: #fff;">ĐÃ HẾT VÉ</span>` : ''}
         </div>
-        <div style="margin-top: 20px;">
-          <button class="btn btn-primary btn-block" onclick="openBookTicketModal(${ev.id}, '${ev.tenSuKien.replace(/'/g, "\\'")}')">
-            🎟️ Đặt vé tham dự ngay
-          </button>
+        <div class="stream-content">
+          <div>
+            <h3 style="font-size: 1.35rem; font-weight: 700; margin-bottom: 8px;">${ev.tenSuKien}</h3>
+            <p class="event-desc">${ev.moTa || 'Sự kiện hàng đầu về công nghệ và khởi nghiệp.'}</p>
+            <div class="event-meta-row"><span>📍</span> <strong>${ev.diaDiem}</strong></div>
+            <div class="event-meta-row"><span>📅</span> <span>${formatDate(ev.ngayBatDau)}</span></div>
+            ${ticketQuotaHtml ? `<div class="event-meta-row"><span>🎫</span> <span>${ticketQuotaHtml}</span></div>` : ''}
+          </div>
+          <div style="margin-top: 20px;">
+            ${isSoldOut ? `
+              <button class="btn btn-secondary btn-block" disabled style="opacity: 0.6; cursor: not-allowed;">
+                🔴 Đã hết vé tham dự
+              </button>
+            ` : `
+              <button class="btn btn-primary btn-block" onclick="openBookTicketModal(${ev.id}, '${cleanTitle}')">
+                🎟️ Đặt vé tham dự ngay ${ev.soVeConLai !== undefined ? `(Còn ${ev.soVeConLai} vé)` : ''}
+              </button>
+            `}
+          </div>
         </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 async function loadAttendeeTickets(email = null) {
@@ -1205,27 +1545,49 @@ async function loadAttendeeTickets(email = null) {
     const myTickets = await api.get(`/api/my-tickets?email=${encodeURIComponent(targetEmail)}`);
     container.innerHTML = myTickets.map(tk => {
       const isChecked = tk.trangThai === 'DaCheckIn';
+      const isCancelled = tk.trangThai === 'Huy';
+      const cleanEventTitle = (tk.tenSuKien || '').replace(/'/g, "\\'");
+
+      let statusBadgeHtml = '';
+      if (isCancelled) {
+        statusBadgeHtml = `<span class="ticket-status-badge cancelled">ĐÃ HỦY VÉ</span>`;
+      } else if (isChecked) {
+        statusBadgeHtml = `<span class="ticket-status-badge checked">ĐÃ CHECK-IN</span>`;
+      } else {
+        statusBadgeHtml = `<span class="ticket-status-badge valid">VÉ HỢP LỆ</span>`;
+      }
+
       return `
-        <div class="ticket-pass">
+        <div class="ticket-pass ${isCancelled ? 'is-cancelled' : ''}">
           <div class="ticket-header">
             <div>
               <span class="badge badge-accent">${tk.tenHangVe || 'Standard'} PASS</span>
               <h3 style="font-size: 1.15rem; margin-top: 4px;">${tk.tenSuKien}</h3>
             </div>
-            <span class="ticket-status-badge ${isChecked ? 'checked' : 'valid'}">
-              ${isChecked ? 'ĐÃ CHECK-IN' : 'VÉ HỢP LỆ'}
-            </span>
+            ${statusBadgeHtml}
           </div>
           <div class="ticket-body">
             <small class="text-muted">MÃ VÉ CỦA BẠN: <strong>${tk.maDangKy}</strong></small>
-            <div class="qr-display">
+            <div class="qr-display" style="${isCancelled ? 'opacity: 0.35; position: relative;' : ''}">
               <img src="${buildQrUrl(tk.qrCode || tk.maDangKy)}" alt="QR Code" />
             </div>
-            <small class="text-muted">Xuất trình mã này tại cổng tiếp đón</small>
+            ${isCancelled ? `
+              <small style="color: #f87171; font-weight: 600;">Vé này đã bị hủy — Vị trí vé đã được giải phóng</small>
+            ` : `
+              <small class="text-muted">Xuất trình mã này tại cổng tiếp đón</small>
+            `}
             <div style="margin-top: 14px; font-size: 0.88rem; color: var(--text-secondary);">
               📍 ${tk.diaDiem || 'Địa điểm sự kiện'}<br>
               ⏱️ ${formatDate(tk.ngayBatDau)}
             </div>
+
+            ${(!isCancelled && !isChecked) ? `
+              <div style="margin-top: 16px; width: 100%; border-top: 1px dashed rgba(255,255,255,0.12); padding-top: 12px; text-align: center;">
+                <button type="button" class="btn btn-sm btn-outline" style="border-color: rgba(239, 68, 68, 0.5); color: #f87171; width: 100%; font-size: 0.85rem;" onclick="cancelAttendeeTicket(${tk.id}, '${tk.maDangKy}', '${cleanEventTitle}')">
+                  ❌ Hủy vé tham dự
+                </button>
+              </div>
+            ` : ''}
           </div>
         </div>
       `;
@@ -1239,6 +1601,34 @@ async function loadAttendeeTickets(email = null) {
     container.innerHTML = `<p class="text-muted">Vui lòng nhập email để tra cứu vé.</p>`;
   }
 }
+
+// Hàm hủy vé dành cho người tham dự
+window.cancelAttendeeTicket = async function(ticketId, maDangKy, tenSuKien) {
+  const filterInput = document.getElementById('attendeeEmailFilter');
+  const user = state.currentUser || JSON.parse(localStorage.getItem('event_user') || 'null');
+  const targetEmail = (filterInput?.value?.trim() || user?.email || '').trim();
+
+  if (!confirm(`⚠️ XÁC NHẬN HỦY VÉ:\nBạn có chắc chắn muốn hủy vé "${maDangKy}" tham dự sự kiện:\n"${tenSuKien}" không?\n\nSau khi bạn hủy vé thành công, chỗ ngồi này sẽ được hoàn trả vào hệ thống cho những người khác có thể đăng ký.`)) {
+    return;
+  }
+
+  try {
+    const res = await api.patch(`/api/my-tickets/${ticketId}/cancel`, { email: targetEmail });
+    alert(`✅ ${res.message || 'Hủy vé thành công!'}`);
+
+    // Tải lại dữ liệu sự kiện và danh sách vé
+    await loadBaseEvents();
+    await loadAttendeeTickets(targetEmail);
+    if (document.getElementById('attendeeEventsList')) {
+      await loadAttendeeEvents();
+    }
+    if (document.getElementById('landingEventsGrid')) {
+      await loadLandingPage();
+    }
+  } catch (err) {
+    alert(`❌ Lỗi hủy vé: ${err.message || 'Không thể hủy vé'}`);
+  }
+};
 
 async function loadAttendeeFeedbacks() {
   try {
@@ -1267,15 +1657,50 @@ async function openBookTicketModal(eventId, eventName) {
     document.getElementById('bookModalEmail').value = user.email || '';
   }
 
-  // Nạp danh sách hạng vé theo sự kiện vào dropdown
+  const tiersListContainer = document.getElementById('bookModalTiersList');
   const select = document.getElementById('bookModalTicketSelect');
-  if (select) {
-    try {
-      const tiers = await api.get(`/api/tickets?eventId=${eventId}`);
+  const submitBtn = document.getElementById('btnSubmitBookTicket');
+
+  try {
+    const tiers = await api.get(`/api/tickets?eventId=${eventId}`);
+
+    // Hiển thị danh sách các hạng vé kèm số lượng còn lại chi tiết
+    if (tiersListContainer) {
       if (tiers && tiers.length > 0) {
-        select.innerHTML = tiers.map(t =>
-          `<option value="${t.tenHangVe}">Vé ${t.tenHangVe} - ${formatCurrency(t.gia)}</option>`
-        ).join('');
+        tiersListContainer.innerHTML = tiers.map(t => {
+          const isTierSoldOut = t.conLai <= 0;
+          return `
+            <div class="tier-availability-card ${isTierSoldOut ? 'sold-out' : ''}">
+              <div class="tier-name">
+                <span>${t.tenHangVe}</span>
+                <small class="text-muted">(${formatCurrency(t.gia)})</small>
+              </div>
+              <div class="tier-quota">
+                ${isTierSoldOut
+                  ? '<span style="color: #f87171;">🔴 Hết vé</span>'
+                  : `<span style="color: #34d399;">🟢 Còn ${t.conLai} / ${t.soLuong} vé</span>`
+                }
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        tiersListContainer.innerHTML = '<small class="text-muted">Đang cập nhật số lượng vé...</small>';
+      }
+    }
+
+    // Nạp dropdown chọn vé kèm thông tin còn vé
+    if (select) {
+      if (tiers && tiers.length > 0) {
+        select.innerHTML = tiers.map(t => {
+          const isTierSoldOut = t.conLai <= 0;
+          return `<option value="${t.tenHangVe}" ${isTierSoldOut ? 'disabled' : ''}>Vé ${t.tenHangVe} - ${formatCurrency(t.gia)} ${isTierSoldOut ? '[ĐÃ HẾT VÉ]' : `(Còn ${t.conLai} vé)`}</option>`;
+        }).join('');
+
+        const availableOpt = Array.from(select.options).find(opt => !opt.disabled);
+        if (availableOpt) {
+          select.value = availableOpt.value;
+        }
       } else {
         select.innerHTML = `
           <option value="VIP">Vé VIP (Chỗ ngồi ưu tiên + Lounge) - 2.390.000 đ</option>
@@ -1283,7 +1708,25 @@ async function openBookTicketModal(eventId, eventName) {
           <option value="Standard">Vé Standard (Tiêu chuẩn) - 790.000 đ</option>
         `;
       }
-    } catch (e) {
+    }
+
+    // Kiểm tra nếu tất cả các hạng vé đều đã hết
+    const allSoldOut = tiers && tiers.length > 0 && tiers.every(t => t.conLai <= 0);
+    if (submitBtn) {
+      if (allSoldOut) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '🔴 Sự kiện đã hết vé';
+        submitBtn.style.opacity = '0.6';
+        submitBtn.style.cursor = 'not-allowed';
+      } else {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Xác nhận đặt vé & Nhận mã QR';
+        submitBtn.style.opacity = '1';
+        submitBtn.style.cursor = 'pointer';
+      }
+    }
+  } catch (e) {
+    if (select) {
       select.innerHTML = `
         <option value="VIP">Vé VIP (Chỗ ngồi ưu tiên + Lounge) - 2.390.000 đ</option>
         <option value="Professional">Vé Professional (Hội thảo + Workshop) - 1.490.000 đ</option>
@@ -1327,6 +1770,77 @@ async function deleteEventById(id) {
     alert(e.message || 'Lỗi khi xóa sự kiện');
   }
 }
+
+// ================= DIỄN GIẢ & PHIÊN NỘI DUNG =================
+window.openAssignSpeakerModal = async function(sessionId) {
+  try {
+    const data = await api.get(`/api/sessions/${sessionId}/speakers`, true);
+    const session = data.session;
+    const assigned = data.assignedSpeakers || [];
+    const available = data.availableSpeakers || [];
+
+    const sessionIdInput = document.getElementById('assignModalSessionId');
+    if (sessionIdInput) sessionIdInput.value = session.id;
+
+    const titleEl = document.getElementById('assignModalSessionTitle');
+    if (titleEl) {
+      titleEl.innerHTML = `Phiên: <strong style="color: #60a5fa;">${session.tenPhien}</strong> (${session.maPhien}) • Sự kiện: <em>${session.tenSuKien || 'Chưa rõ'}</em>`;
+    }
+
+    // Render assigned speakers
+    const currentListEl = document.getElementById('assignModalCurrentSpeakersList');
+    if (currentListEl) {
+      if (assigned.length === 0) {
+        currentListEl.innerHTML = '<p class="text-muted" style="font-size: 0.85rem; font-style: italic; margin: 4px 0;">Chưa có diễn giả nào được gán cho phiên này.</p>';
+      } else {
+        currentListEl.innerHTML = assigned.map(sp => `
+          <div class="assigned-speaker-row">
+            <div class="assigned-speaker-info">
+              <img class="assigned-speaker-avatar" src="${sp.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2'}" alt="${sp.tenDienGia}" />
+              <div>
+                <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">${sp.tenDienGia}</div>
+                <div style="font-size: 0.78rem; color: var(--text-muted);">${sp.chuyenNganh || 'Chuyên gia'} • Mã: ${sp.maDienGia}</div>
+              </div>
+            </div>
+            <button type="button" class="btn-remove-speaker" onclick="removeSpeakerFromSession(${session.id}, ${sp.id}, '${sp.tenDienGia.replace(/'/g, "\\'")}')">
+              ✕ Hủy gán
+            </button>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Populate available speakers select
+    const selectEl = document.getElementById('assignSpeakerSelect');
+    const submitBtn = document.getElementById('btnSubmitAssignSpeaker');
+    if (selectEl) {
+      if (available.length === 0) {
+        selectEl.innerHTML = '<option value="">-- Tất cả diễn giả đã được gán vào phiên này --</option>';
+        if (submitBtn) submitBtn.disabled = true;
+      } else {
+        selectEl.innerHTML = '<option value="">-- Chọn diễn giả để gán --</option>' +
+          available.map(sp => `<option value="${sp.id}">${sp.tenDienGia} (${sp.chuyenNganh || sp.maDienGia})</option>`).join('');
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    }
+
+    openModal('assignSpeakerModal');
+  } catch (err) {
+    alert(err.message || 'Không thể tải thông tin diễn giả của phiên');
+  }
+};
+
+window.removeSpeakerFromSession = async function(sessionId, speakerId, speakerName) {
+  if (!confirm(`Bạn có chắc chắn muốn hủy gán diễn giả "${speakerName}" khỏi phiên này?`)) return;
+  try {
+    await api.delete(`/api/sessions/${sessionId}/speakers/${speakerId}`, true);
+    alert('Đã hủy gán diễn giả thành công!');
+    await window.openAssignSpeakerModal(sessionId);
+    await loadBtcSessions();
+  } catch (err) {
+    alert(err.message || 'Lỗi khi hủy gán diễn giả');
+  }
+};
 
 // ==============================================================
 // FORM SUBMISSIONS & EVENT LISTENERS
@@ -1491,6 +2005,7 @@ function setupEventListeners() {
 
     try {
       const res = await api.post('/api/auth/login', { tenDangNhap, matKhau });
+      clearLoginAlert();
       localStorage.setItem('event_token', res.token);
       localStorage.setItem('event_user', JSON.stringify(res.user));
 
@@ -1500,7 +2015,14 @@ function setupEventListeners() {
       // Enforce Portal of the authenticated user role immediately without reload/reset
       await applyUserSession(res.user);
     } catch (err) {
-      alert(err.message || 'Đăng nhập thất bại! Vui lòng kiểm tra lại tài khoản và mật khẩu.');
+      const data = err.data || {};
+      if (err.status === 429 || data.isLocked || data.conLaiGiay) {
+        showLoginAlert(err.message, 'lock', data.conLaiGiay || 180);
+      } else if (data.soLanConLai !== undefined) {
+        showLoginAlert(err.message, 'warning');
+      } else {
+        showLoginAlert(err.message || 'Đăng nhập thất bại! Vui lòng kiểm tra lại tài khoản và mật khẩu.', 'error');
+      }
     }
   });
 
@@ -1735,25 +2257,187 @@ function setupEventListeners() {
     openModal('eventModal');
   });
 
-  // BTC Session Form
+  // ================= KIỂM TRA TRÙNG LỊCH PHIÊN NỘI DUNG =================
+  let btcSessionConflictTimer = null;
+
+  async function checkBtcSessionTimeConflict() {
+    const eventSelect = document.getElementById('btcSessionEventSelect');
+    const startInput = document.getElementById('btcSessionStartTime');
+    const durationInput = document.getElementById('btcSessionDuration');
+    const alertBox = document.getElementById('sessionTimeConflictAlert');
+    const validNotice = document.getElementById('sessionTimeValidNotice');
+    const msgEl = document.getElementById('sessionConflictMsg');
+    const detailEl = document.getElementById('sessionConflictDetail');
+    const submitBtn = document.getElementById('btnSaveBtcSession');
+
+    if (!eventSelect || !startInput || !durationInput) return { hasConflict: false };
+
+    const suKienId = eventSelect.value;
+    const ngayGio = startInput.value;
+    const thoiLuong = durationInput.value || 60;
+
+    // Nếu chưa chọn sự kiện hoặc chưa chọn thời gian bắt đầu
+    if (!suKienId || !ngayGio) {
+      if (alertBox) alertBox.style.display = 'none';
+      if (validNotice) validNotice.style.display = 'none';
+      startInput.classList.remove('input-conflict-error');
+      durationInput.classList.remove('input-conflict-error');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.title = '';
+      }
+      return { hasConflict: false };
+    }
+
+    try {
+      const res = await api.get(
+        `/api/sessions/check-conflict?suKienId=${suKienId}&ngayGio=${encodeURIComponent(ngayGio)}&thoiLuong=${thoiLuong}`
+      );
+
+      if (res.hasConflict) {
+        // Cảnh báo ngay lập tức trên giao diện
+        if (alertBox) {
+          alertBox.style.display = 'flex';
+          if (msgEl) msgEl.textContent = res.message;
+          if (detailEl && res.conflictingSession) {
+            const cs = res.conflictingSession;
+            detailEl.innerHTML = `
+              <strong>Phiên trùng:</strong> ${cs.tenPhien} (Mã: <code>${cs.maPhien}</code>)<br/>
+              <strong>Thời lượng:</strong> ${cs.thoiLuong} phút | <strong>Phòng:</strong> ${cs.phong || 'Chính'}
+            `;
+          }
+        }
+        if (validNotice) validNotice.style.display = 'none';
+
+        startInput.classList.add('input-conflict-error');
+        durationInput.classList.add('input-conflict-error');
+
+        // Khóa không cho bấm lưu phiên bị trùng
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.title = 'Không thể lưu: Phiên bị trùng lịch trong cùng sự kiện!';
+        }
+
+        return { hasConflict: true, message: res.message };
+      } else {
+        // Không trùng -> Bật trạng thái hợp lệ
+        if (alertBox) alertBox.style.display = 'none';
+        if (validNotice) {
+          validNotice.style.display = 'flex';
+          const validMsg = document.getElementById('sessionValidMsg');
+          if (validMsg) validMsg.textContent = res.message || 'Khung giờ hợp lệ, không bị trùng lịch với phiên nào khác.';
+        }
+
+        startInput.classList.remove('input-conflict-error');
+        durationInput.classList.remove('input-conflict-error');
+
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.title = '';
+        }
+
+        return { hasConflict: false };
+      }
+    } catch (err) {
+      console.warn('Lỗi kiểm tra trùng lịch:', err);
+      return { hasConflict: false };
+    }
+  }
+
+  function debouncedBtcSessionConflictCheck() {
+    clearTimeout(btcSessionConflictTimer);
+    btcSessionConflictTimer = setTimeout(checkBtcSessionTimeConflict, 150);
+  }
+
+  document.getElementById('btcSessionEventSelect')?.addEventListener('change', checkBtcSessionTimeConflict);
+  document.getElementById('btcSessionStartTime')?.addEventListener('input', debouncedBtcSessionConflictCheck);
+  document.getElementById('btcSessionStartTime')?.addEventListener('change', checkBtcSessionTimeConflict);
+  document.getElementById('btcSessionDuration')?.addEventListener('input', debouncedBtcSessionConflictCheck);
+  document.getElementById('btcSessionDuration')?.addEventListener('change', checkBtcSessionTimeConflict);
+
+  // BTC Session Form Submit
   document.getElementById('btcSessionForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const formEl = e.currentTarget;
     const form = new FormData(formEl);
+
+    // Kiểm tra trực tiếp thời gian trước khi submit
+    const conflictCheck = await checkBtcSessionTimeConflict();
+    if (conflictCheck.hasConflict) {
+      alert(conflictCheck.message || 'Cảnh báo: Thời gian phiên mới bị trùng với phiên đã có trong cùng sự kiện! Không thể đăng ký phiên đó.');
+      document.getElementById('sessionTimeConflictAlert')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
     try {
+      const dienGiaVal = form.get('dienGiaId');
+      const thoiLuongVal = form.get('thoiLuong');
+
       await api.post('/api/sessions', {
         suKienId: Number(form.get('suKienId')),
         maPhien: form.get('maPhien'),
         tenPhien: form.get('tenPhien'),
         ngayGio: form.get('ngayGio'),
+        thoiLuong: thoiLuongVal ? Number(thoiLuongVal) : 60,
         phong: form.get('phong'),
-        moTa: form.get('moTa')
+        moTa: form.get('moTa'),
+        dienGiaId: dienGiaVal ? Number(dienGiaVal) : null
       }, true);
+
       alert('Thêm phiên hội thảo thành công');
       formEl?.reset();
+
+      // Khôi phục giá trị mặc định cho thời lượng (60 phút)
+      const durationInput = document.getElementById('btcSessionDuration');
+      if (durationInput) durationInput.value = '60';
+
+      // Ẩn các hộp cảnh báo và xóa highlight lỗi
+      const alertBox = document.getElementById('sessionTimeConflictAlert');
+      const validNotice = document.getElementById('sessionTimeValidNotice');
+      if (alertBox) alertBox.style.display = 'none';
+      if (validNotice) validNotice.style.display = 'none';
+      document.getElementById('btcSessionStartTime')?.classList.remove('input-conflict-error');
+      document.getElementById('btcSessionDuration')?.classList.remove('input-conflict-error');
+      const submitBtn = document.getElementById('btnSaveBtcSession');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.title = '';
+      }
+
       await loadBtcSessions();
     } catch (err) {
-      alert(err.message || 'Lỗi thêm phiên');
+      if (err.status === 409 || err.data?.hasConflict) {
+        const alertBox = document.getElementById('sessionTimeConflictAlert');
+        const msgEl = document.getElementById('sessionConflictMsg');
+        if (alertBox) {
+          alertBox.style.display = 'flex';
+          if (msgEl) msgEl.textContent = err.message;
+        }
+        document.getElementById('btcSessionStartTime')?.classList.add('input-conflict-error');
+        document.getElementById('btcSessionDuration')?.classList.add('input-conflict-error');
+        alert(err.message || 'Lỗi: Trùng thời gian phiên trong cùng sự kiện!');
+      } else {
+        alert(err.message || 'Lỗi thêm phiên');
+      }
+    }
+  });
+
+  // Assign Speaker Form (Modal)
+  document.getElementById('assignSpeakerForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const sessionId = document.getElementById('assignModalSessionId').value;
+    const speakerId = document.getElementById('assignSpeakerSelect').value;
+    if (!sessionId || !speakerId) {
+      alert('Vui lòng chọn diễn giả để gán');
+      return;
+    }
+    try {
+      await api.post(`/api/sessions/${sessionId}/speakers`, { dienGiaId: Number(speakerId) }, true);
+      alert('Gán diễn giả vào phiên thành công!');
+      await window.openAssignSpeakerModal(sessionId);
+      await loadBtcSessions();
+    } catch (err) {
+      alert(err.message || 'Lỗi khi gán diễn giả');
     }
   });
 
@@ -2104,7 +2788,10 @@ function setupEventListeners() {
         const ticketNavBtn = document.querySelector('#view-attendee [data-target="attendee-tickets"]');
         if (ticketNavBtn) ticketNavBtn.click();
       }
+      await loadBaseEvents();
       await loadAttendeeTickets(email);
+      if (document.getElementById('attendeeEventsList')) await loadAttendeeEvents();
+      if (document.getElementById('landingEventsGrid')) await loadLandingPage();
     } catch (err) {
       alert(err.message || 'Đặt vé thất bại');
     } finally {
@@ -2113,6 +2800,74 @@ function setupEventListeners() {
         submitBtn.innerHTML = originalBtnText;
       }
     }
+  });
+
+  // Attendee Event Search & Filters
+  const attendeeSearchInput = document.getElementById('attendeeEventSearchInput');
+  const attendeeClearBtn = document.getElementById('btnAttendeeClearSearch');
+  if (attendeeSearchInput) {
+    attendeeSearchInput.addEventListener('input', (e) => {
+      attendeeEventFilters.keyword = e.target.value;
+      if (attendeeClearBtn) attendeeClearBtn.classList.toggle('hidden', !e.target.value);
+      loadAttendeeEvents();
+    });
+  }
+
+  attendeeClearBtn?.addEventListener('click', () => {
+    if (attendeeSearchInput) attendeeSearchInput.value = '';
+    attendeeEventFilters.keyword = '';
+    attendeeClearBtn.classList.add('hidden');
+    loadAttendeeEvents();
+  });
+
+  document.querySelectorAll('#attendeeStatusPills .status-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#attendeeStatusPills .status-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      attendeeEventFilters.status = btn.dataset.status;
+      loadAttendeeEvents();
+    });
+  });
+
+  document.getElementById('attendeeCategoryFilter')?.addEventListener('change', (e) => {
+    attendeeEventFilters.category = e.target.value;
+    loadAttendeeEvents();
+  });
+
+  document.getElementById('attendeeSortFilter')?.addEventListener('change', (e) => {
+    attendeeEventFilters.sortBy = e.target.value;
+    loadAttendeeEvents();
+  });
+
+  document.getElementById('btnAttendeeResetFilters')?.addEventListener('click', () => {
+    resetAttendeeEventFilters();
+  });
+
+  // Landing Page Event Search & Status Filters
+  const landingSearchInput = document.getElementById('landingEventSearchInput');
+  const landingClearBtn = document.getElementById('btnLandingClearSearch');
+  if (landingSearchInput) {
+    landingSearchInput.addEventListener('input', (e) => {
+      landingEventFilters.keyword = e.target.value;
+      if (landingClearBtn) landingClearBtn.classList.toggle('hidden', !e.target.value);
+      loadLandingPage();
+    });
+  }
+
+  landingClearBtn?.addEventListener('click', () => {
+    if (landingSearchInput) landingSearchInput.value = '';
+    landingEventFilters.keyword = '';
+    landingClearBtn.classList.add('hidden');
+    loadLandingPage();
+  });
+
+  document.querySelectorAll('#landingStatusPills .status-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#landingStatusPills .status-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      landingEventFilters.status = btn.dataset.status;
+      loadLandingPage();
+    });
   });
 
   // Attendee Ticket Lookup

@@ -24,29 +24,342 @@ exports.getDashboardSummary = (req, res) => {
 
 exports.listSessions = (req, res) => {
   const { eventId } = req.query;
-  const sql = eventId ? 'SELECT * FROM PhienNoiDung WHERE suKienId = ? ORDER BY ngayGio ASC' : 'SELECT * FROM PhienNoiDung ORDER BY ngayGio ASC';
+  const sql = `
+    SELECT p.*, s.tenSuKien, s.maSuKien
+    FROM PhienNoiDung p
+    LEFT JOIN SuKien s ON s.id = p.suKienId
+    ${eventId ? 'WHERE p.suKienId = ?' : ''}
+    ORDER BY p.ngayGio ASC
+  `;
   const params = eventId ? [eventId] : [];
 
-  db.all(sql, params, (err, rows) => {
-    if (err) return res.status(500).json({ message: 'Database error' });
-    return res.json(rows);
+  db.all(sql, params, (err, sessions) => {
+    if (err) return res.status(500).json({ message: 'Database error', error: err.message });
+    if (!sessions || sessions.length === 0) return res.json([]);
+
+    const sessionIds = sessions.map(s => s.id);
+    const placeholders = sessionIds.map(() => '?').join(',');
+    const speakerSql = `
+      SELECT pd.phienNoiDungId, d.id, d.maDienGia, d.tenDienGia, d.chuyenNganh, d.avatarUrl
+      FROM PhienNoiDung_DienGia pd
+      JOIN DienGia d ON d.id = pd.dienGiaId
+      WHERE pd.phienNoiDungId IN (${placeholders})
+      ORDER BY d.tenDienGia ASC
+    `;
+
+    db.all(speakerSql, sessionIds, (spkErr, speakerRows) => {
+      const speakersBySession = {};
+      (speakerRows || []).forEach(row => {
+        if (!speakersBySession[row.phienNoiDungId]) {
+          speakersBySession[row.phienNoiDungId] = [];
+        }
+        speakersBySession[row.phienNoiDungId].push({
+          id: row.id,
+          maDienGia: row.maDienGia,
+          tenDienGia: row.tenDienGia,
+          chuyenNganh: row.chuyenNganh,
+          avatarUrl: row.avatarUrl
+        });
+      });
+
+      const result = sessions.map(s => ({
+        ...s,
+        dienGia: speakersBySession[s.id] || []
+      }));
+      return res.json(result);
+    });
   });
 };
 
-exports.createSession = (req, res) => {
-  const { maPhien, tenPhien, moTa, ngayGio, diaDiem, suKienId, phong } = req.body;
+function formatVNTime(dateObj) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const hours = pad(dateObj.getHours());
+  const minutes = pad(dateObj.getMinutes());
+  const day = pad(dateObj.getDate());
+  const month = pad(dateObj.getMonth() + 1);
+  const year = dateObj.getFullYear();
+  return `${hours}:${minutes} ngày ${day}/${month}/${year}`;
+}
 
-  if (!maPhien || !tenPhien || !suKienId) {
-    return res.status(400).json({ message: 'Thiếu thông tin phiên nội dung' });
+exports.checkSessionConflict = (req, res) => {
+  const { suKienId, ngayGio, thoiLuong, excludeSessionId } = req.query;
+
+  if (!suKienId || !ngayGio) {
+    return res.status(400).json({ message: 'Vui lòng cung cấp suKienId và ngayGio' });
+  }
+
+  const newStart = new Date(ngayGio).getTime();
+  if (isNaN(newStart)) {
+    return res.status(400).json({ message: 'Thời gian bắt đầu không hợp lệ' });
+  }
+
+  const newDuration = Math.max(1, parseInt(thoiLuong, 10) || 60);
+  const newEnd = newStart + newDuration * 60 * 1000;
+  const excludeId = excludeSessionId ? Number(excludeSessionId) : null;
+
+  db.all(
+    `SELECT id, maPhien, tenPhien, ngayGio, COALESCE(thoiLuong, 60) AS thoiLuong, phong, diaDiem
+     FROM PhienNoiDung
+     WHERE suKienId = ?`,
+    [Number(suKienId)],
+    (err, existingSessions) => {
+      if (err) return res.status(500).json({ message: 'Database error', error: err.message });
+
+      const conflict = (existingSessions || []).find(s => {
+        if (excludeId && s.id === excludeId) return false;
+        const existStart = new Date(s.ngayGio).getTime();
+        if (isNaN(existStart)) return false;
+        const existDuration = Math.max(1, parseInt(s.thoiLuong, 10) || 60);
+        const existEnd = existStart + existDuration * 60 * 1000;
+        return (newStart < existEnd && newEnd > existStart);
+      });
+
+      if (conflict) {
+        const existStart = new Date(conflict.ngayGio);
+        const existDuration = Math.max(1, parseInt(conflict.thoiLuong, 10) || 60);
+        const existEnd = new Date(existStart.getTime() + existDuration * 60 * 1000);
+
+        return res.json({
+          hasConflict: true,
+          message: `Trùng thời gian! Đã có phiên "${conflict.tenPhien}" (${conflict.maPhien}) diễn ra từ ${formatVNTime(existStart)} đến ${formatVNTime(existEnd)} (${existDuration} phút) trong cùng sự kiện. Không thể đăng ký phiên này!`,
+          conflictingSession: {
+            id: conflict.id,
+            maPhien: conflict.maPhien,
+            tenPhien: conflict.tenPhien,
+            ngayGio: conflict.ngayGio,
+            thoiLuong: existDuration,
+            phong: conflict.phong
+          }
+        });
+      }
+
+      return res.json({
+        hasConflict: false,
+        message: 'Khung giờ hợp lệ, không bị trùng với phiên nào trong sự kiện.'
+      });
+    }
+  );
+};
+
+exports.createSession = (req, res) => {
+  const { maPhien, tenPhien, moTa, ngayGio, thoiLuong, diaDiem, suKienId, phong, dienGiaId, dienGiaIds } = req.body;
+
+  if (!maPhien || !tenPhien || !suKienId || !ngayGio) {
+    return res.status(400).json({ message: 'Thiếu thông tin phiên nội dung (mã, tên, sự kiện, thời gian)' });
+  }
+
+  const newStart = new Date(ngayGio).getTime();
+  if (isNaN(newStart)) {
+    return res.status(400).json({ message: 'Thời gian bắt đầu phiên không hợp lệ' });
+  }
+
+  const newDuration = Math.max(1, parseInt(thoiLuong, 10) || 60);
+  const newEnd = newStart + newDuration * 60 * 1000;
+
+  // Kiểm tra xung đột thời gian với các phiên đã có trong cùng sự kiện
+  db.all(
+    `SELECT id, maPhien, tenPhien, ngayGio, COALESCE(thoiLuong, 60) AS thoiLuong, phong, diaDiem
+     FROM PhienNoiDung
+     WHERE suKienId = ?`,
+    [Number(suKienId)],
+    (err, existingSessions) => {
+      if (err) return res.status(500).json({ message: 'Database error', error: err.message });
+
+      const conflict = (existingSessions || []).find(s => {
+        const existStart = new Date(s.ngayGio).getTime();
+        if (isNaN(existStart)) return false;
+        const existDuration = Math.max(1, parseInt(s.thoiLuong, 10) || 60);
+        const existEnd = existStart + existDuration * 60 * 1000;
+        return (newStart < existEnd && newEnd > existStart);
+      });
+
+      if (conflict) {
+        const existStart = new Date(conflict.ngayGio);
+        const existDuration = Math.max(1, parseInt(conflict.thoiLuong, 10) || 60);
+        const existEnd = new Date(existStart.getTime() + existDuration * 60 * 1000);
+
+        return res.status(409).json({
+          hasConflict: true,
+          message: `Trùng thời gian! Đã có phiên "${conflict.tenPhien}" (${conflict.maPhien}) diễn ra từ ${formatVNTime(existStart)} đến ${formatVNTime(existEnd)} (${existDuration} phút) trong cùng sự kiện. Không thể đăng ký phiên này!`,
+          conflictingSession: {
+            id: conflict.id,
+            maPhien: conflict.maPhien,
+            tenPhien: conflict.tenPhien,
+            ngayGio: conflict.ngayGio,
+            thoiLuong: existDuration,
+            phong: conflict.phong
+          }
+        });
+      }
+
+      // Khung giờ hợp lệ -> Lưu phiên mới
+      db.run(
+        `INSERT INTO PhienNoiDung (maPhien, tenPhien, moTa, ngayGio, thoiLuong, diaDiem, suKienId, phong)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [maPhien, tenPhien, moTa || '', ngayGio, newDuration, diaDiem || '', Number(suKienId), phong || ''],
+        function (insertErr) {
+          if (insertErr) return res.status(400).json({ message: 'Không thể tạo phiên nội dung', error: insertErr.message });
+          const sessionId = this.lastID;
+
+          // Xử lý gán diễn giả nếu có truyền vào ngay khi tạo phiên
+          const rawIds = dienGiaIds || (dienGiaId ? [dienGiaId] : []);
+          const targetSpeakerIds = (Array.isArray(rawIds) ? rawIds : [rawIds]).map(Number).filter(id => id > 0);
+
+          if (targetSpeakerIds.length > 0) {
+            let inserted = 0;
+            targetSpeakerIds.forEach(spkId => {
+              db.run(
+                'INSERT OR IGNORE INTO PhienNoiDung_DienGia (phienNoiDungId, dienGiaId) VALUES (?, ?)',
+                [sessionId, spkId],
+                () => {
+                  inserted++;
+                  if (inserted === targetSpeakerIds.length) {
+                    return res.status(201).json({ id: sessionId, message: 'Tạo phiên và gán diễn giả thành công' });
+                  }
+                }
+              );
+            });
+          } else {
+            return res.status(201).json({ id: sessionId, message: 'Tạo phiên thành công' });
+          }
+        }
+      );
+    }
+  );
+};
+
+exports.getSessionSpeakers = (req, res) => {
+  const sessionId = Number(req.params.id);
+  if (!sessionId) {
+    return res.status(400).json({ message: 'ID phiên không hợp lệ' });
+  }
+
+  db.get(
+    `SELECT p.*, s.tenSuKien, s.maSuKien
+     FROM PhienNoiDung p
+     LEFT JOIN SuKien s ON s.id = p.suKienId
+     WHERE p.id = ?`,
+    [sessionId],
+    (err, session) => {
+      if (err) return res.status(500).json({ message: 'Database error', error: err.message });
+      if (!session) return res.status(404).json({ message: 'Không tìm thấy phiên nội dung' });
+
+      // Lấy danh sách diễn giả đã gán vào phiên này
+      db.all(
+        `SELECT d.*
+         FROM DienGia d
+         JOIN PhienNoiDung_DienGia pd ON pd.dienGiaId = d.id
+         WHERE pd.phienNoiDungId = ?
+         ORDER BY d.tenDienGia ASC`,
+        [sessionId],
+        (spkErr, assignedSpeakers) => {
+          if (spkErr) return res.status(500).json({ message: 'Database error', error: spkErr.message });
+
+          // Lấy danh sách diễn giả chưa được gán vào phiên này để hiển thị trong dropdown chọn gán
+          db.all(
+            `SELECT d.*
+             FROM DienGia d
+             WHERE d.id NOT IN (
+               SELECT dienGiaId FROM PhienNoiDung_DienGia WHERE phienNoiDungId = ?
+             )
+             ORDER BY d.tenDienGia ASC`,
+            [sessionId],
+            (availErr, availableSpeakers) => {
+              if (availErr) return res.status(500).json({ message: 'Database error', error: availErr.message });
+
+              return res.json({
+                session,
+                assignedSpeakers: assignedSpeakers || [],
+                availableSpeakers: availableSpeakers || []
+              });
+            }
+          );
+        }
+      );
+    }
+  );
+};
+
+exports.assignSpeakerToSession = (req, res) => {
+  const sessionId = Number(req.params.id);
+  const { dienGiaId, dienGiaIds } = req.body;
+
+  if (!sessionId) {
+    return res.status(400).json({ message: 'ID phiên không hợp lệ' });
+  }
+
+  const rawIds = dienGiaIds || (dienGiaId ? [dienGiaId] : []);
+  const targetSpeakerIds = (Array.isArray(rawIds) ? rawIds : [rawIds]).map(Number).filter(id => id > 0);
+
+  if (targetSpeakerIds.length === 0) {
+    return res.status(400).json({ message: 'Vui lòng chọn diễn giả để gán vào phiên' });
+  }
+
+  // 1. Kiểm tra phiên có tồn tại không
+  db.get('SELECT id, tenPhien, maPhien, suKienId FROM PhienNoiDung WHERE id = ?', [sessionId], (sessErr, session) => {
+    if (sessErr) return res.status(500).json({ message: 'Database error', error: sessErr.message });
+    if (!session) return res.status(404).json({ message: 'Không tìm thấy phiên nội dung' });
+
+    let completed = 0;
+    let errors = [];
+
+    targetSpeakerIds.forEach(spkId => {
+      // Kiểm tra diễn giả tồn tại
+      db.get('SELECT id, tenDienGia FROM DienGia WHERE id = ?', [spkId], (spkErr, speaker) => {
+        if (spkErr || !speaker) {
+          completed++;
+          if (completed === targetSpeakerIds.length) finish();
+          return;
+        }
+
+        db.run(
+          'INSERT OR IGNORE INTO PhienNoiDung_DienGia (phienNoiDungId, dienGiaId) VALUES (?, ?)',
+          [sessionId, spkId],
+          function (insErr) {
+            if (insErr) errors.push(insErr.message);
+            completed++;
+            if (completed === targetSpeakerIds.length) {
+              finish(speaker);
+            }
+          }
+        );
+      });
+    });
+
+    function finish(lastSpeaker) {
+      if (errors.length > 0 && completed === errors.length) {
+        return res.status(400).json({ message: 'Lỗi gán diễn giả', errors });
+      }
+
+      const spkName = lastSpeaker?.tenDienGia || 'diễn giả';
+      return res.status(200).json({
+        message: targetSpeakerIds.length === 1 
+          ? `Đã gán diễn giả "${spkName}" vào phiên "${session.tenPhien}" thành công.`
+          : `Đã gán thành công các diễn giả vào phiên "${session.tenPhien}".`,
+        sessionId,
+        tenPhien: session.tenPhien
+      });
+    }
+  });
+};
+
+exports.removeSpeakerFromSession = (req, res) => {
+  const sessionId = Number(req.params.id);
+  const speakerId = Number(req.params.dienGiaId);
+
+  if (!sessionId || !speakerId) {
+    return res.status(400).json({ message: 'ID phiên hoặc ID diễn giả không hợp lệ' });
   }
 
   db.run(
-    `INSERT INTO PhienNoiDung (maPhien, tenPhien, moTa, ngayGio, diaDiem, suKienId, phong)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [maPhien, tenPhien, moTa || '', ngayGio, diaDiem || '', suKienId, phong || ''],
+    'DELETE FROM PhienNoiDung_DienGia WHERE phienNoiDungId = ? AND dienGiaId = ?',
+    [sessionId, speakerId],
     function (err) {
-      if (err) return res.status(400).json({ message: 'Không thể tạo phiên nội dung', error: err.message });
-      return res.status(201).json({ id: this.lastID, message: 'Tạo phiên thành công' });
+      if (err) return res.status(500).json({ message: 'Database error', error: err.message });
+      if (this.changes === 0) {
+        return res.status(404).json({ message: 'Diễn giả này chưa được gán vào phiên hoặc đã được gỡ trước đó' });
+      }
+      return res.json({ message: 'Đã gỡ diễn giả khỏi phiên nội dung thành công', sessionId, speakerId });
     }
   );
 };
@@ -74,11 +387,33 @@ exports.createSpeaker = (req, res) => {
 
 exports.listTickets = (req, res) => {
   const { eventId } = req.query;
-  const sql = eventId ? 'SELECT * FROM HangVe WHERE suKienId = ? ORDER BY gia ASC' : 'SELECT * FROM HangVe ORDER BY gia ASC';
+  const whereClause = eventId ? 'WHERE h.suKienId = ?' : '';
   const params = eventId ? [eventId] : [];
 
+  const sql = `
+    SELECT h.*,
+           s.tenSuKien,
+           COALESCE(booked.daBan, 0) AS daBan,
+           MAX(0, h.soLuong - COALESCE(booked.daBan, 0)) AS conLai,
+           CASE 
+             WHEN MAX(0, h.soLuong - COALESCE(booked.daBan, 0)) <= 0 THEN 'HetVe'
+             WHEN h.trangThai = 'TaiCho' THEN 'TaiCho'
+             ELSE 'ConVe'
+           END AS tinhTrangVe
+    FROM HangVe h
+    LEFT JOIN SuKien s ON s.id = h.suKienId
+    LEFT JOIN (
+      SELECT hangVeId, SUM(soLuong) as daBan
+      FROM DangKy
+      WHERE trangThai != 'Huy'
+      GROUP BY hangVeId
+    ) booked ON booked.hangVeId = h.id
+    ${whereClause}
+    ORDER BY h.gia ASC
+  `;
+
   db.all(sql, params, (err, rows) => {
-    if (err) return res.status(500).json({ message: 'Database error' });
+    if (err) return res.status(500).json({ message: 'Database error', error: err.message });
     return res.json(rows);
   });
 };
@@ -197,14 +532,31 @@ exports.registerGuest = (req, res) => {
         const qrCode = `QR-${eventId}-${guestId}-${uniqueSuffix}`;
         const maDangKy = `REG-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-        db.run(
-          `INSERT INTO DangKy (maDangKy, nguoiThamDuId, suKienId, hangVeId, soLuong, tongTien, trangThai, qrCode)
-           VALUES (?, ?, ?, ?, 1, ?, 'DaXacNhan', ?)`,
-          [maDangKy, guestId, Number(eventId), tier.id, ticketPrice, qrCode],
-          async function (regErr) {
-            if (regErr) return res.status(400).json({ message: 'Không thể lưu đăng ký', error: regErr.message });
-            
-            const lastInsertedId = this.lastID;
+        // Kiểm tra xem hạng vé này có còn vé không trước khi lưu
+        db.get(
+          `SELECT h.soLuong,
+                  COALESCE(SUM(d.soLuong), 0) AS daBan,
+                  MAX(0, h.soLuong - COALESCE(SUM(d.soLuong), 0)) AS conLai
+           FROM HangVe h
+           LEFT JOIN DangKy d ON d.hangVeId = h.id AND d.trangThai != 'Huy'
+           WHERE h.id = ?
+           GROUP BY h.id`,
+          [tier.id],
+          (availErr, availRow) => {
+            if (availRow && availRow.conLai <= 0) {
+              return res.status(400).json({
+                message: `Hạng vé "${tier.tenHangVe}" của sự kiện này hiện đã HẾT VÉ! Vui lòng chọn hạng vé khác.`
+              });
+            }
+
+            db.run(
+              `INSERT INTO DangKy (maDangKy, nguoiThamDuId, suKienId, hangVeId, soLuong, tongTien, trangThai, qrCode)
+               VALUES (?, ?, ?, ?, 1, ?, 'DaXacNhan', ?)`,
+              [maDangKy, guestId, Number(eventId), tier.id, ticketPrice, qrCode],
+              async function (regErr) {
+                if (regErr) return res.status(400).json({ message: 'Không thể lưu đăng ký', error: regErr.message });
+                
+                const lastInsertedId = this.lastID;
 
             // Kích hoạt AI tự động sinh thông báo & gửi email xác nhận + nhắc lịch
             let notificationResult = null;
@@ -238,6 +590,7 @@ exports.registerGuest = (req, res) => {
         );
       });
     });
+  });
   });
 };
 
@@ -300,6 +653,14 @@ exports.checkinTicket = (req, res) => {
     if (err) return res.status(500).json({ message: 'Database error' });
     if (!row) return res.status(404).json({ message: `Không tìm thấy vé với mã "${cleanCode}"` });
     
+    if (row.trangThai === 'Huy') {
+      return res.status(400).json({ 
+        message: `Vé này đã bị HỦY, không có giá trị để check-in vào sự kiện!`,
+        ticket: row,
+        isCancelled: true
+      });
+    }
+
     if (row.trangThai === 'DaCheckIn') {
       return res.status(400).json({ 
         message: `Vé này đã được check-in lúc ${row.thoiGianCheckIn || 'trước đó'}!`,
@@ -480,6 +841,66 @@ exports.listFeedbacks = (req, res) => {
   `, params, (err, rows) => {
     if (err) return res.status(500).json({ message: 'Database error' });
     return res.json(rows);
+  });
+};
+
+exports.cancelTicket = (req, res) => {
+  const { id } = req.params;
+  const reason = (req.body.lyDo || req.body.reason || 'Người tham dự yêu cầu hủy vé').trim();
+  const callerEmail = (req.body.email || (req.user ? req.user.email : null) || '').trim().toLowerCase();
+
+  db.get(`
+    SELECT d.*, n.hoTen, n.email, s.tenSuKien, s.ngayBatDau, s.diaDiem, h.tenHangVe, h.gia
+    FROM DangKy d
+    JOIN NguoiThamDu n ON n.id = d.nguoiThamDuId
+    LEFT JOIN SuKien s ON s.id = d.suKienId
+    LEFT JOIN HangVe h ON h.id = d.hangVeId
+    WHERE d.id = ? OR d.maDangKy = ?
+  `, [id, id], (err, ticket) => {
+    if (err) return res.status(500).json({ message: 'Lỗi cơ sở dữ liệu', error: err.message });
+    if (!ticket) return res.status(404).json({ message: 'Không tìm thấy thông tin vé cần hủy' });
+
+    // Kiểm tra quyền: nếu là Người tham dự thì phải đúng email của vé
+    const isStaffOrAdmin = req.user && ['QuanTriVien', 'BanToChuc', 'KeToan'].includes(req.user.vaiTro);
+    if (!isStaffOrAdmin && callerEmail) {
+      if (ticket.email.toLowerCase() !== callerEmail) {
+        return res.status(403).json({ message: 'Bạn không có quyền hủy vé của người khác' });
+      }
+    }
+
+    if (ticket.trangThai === 'DaCheckIn') {
+      return res.status(400).json({
+        message: 'Vé này đã được check-in tại sự kiện nên không thể thực hiện hủy vé.'
+      });
+    }
+
+    if (ticket.trangThai === 'Huy') {
+      return res.status(400).json({
+        message: 'Vé này đã được hủy trước đó rồi.'
+      });
+    }
+
+    db.run(
+      `UPDATE DangKy SET trangThai = 'Huy' WHERE id = ?`,
+      [ticket.id],
+      function (updateErr) {
+        if (updateErr) return res.status(500).json({ message: 'Không thể cập nhật hủy vé', error: updateErr.message });
+
+        // Tự động kiểm tra và mở lại trạng thái HangVe nếu trước đó từng bị HetVe
+        db.run(`UPDATE HangVe SET trangThai = 'ConVe' WHERE id = ? AND trangThai = 'HetVe'`, [ticket.hangVeId]);
+
+        return res.json({
+          message: `Đã hủy vé "${ticket.maDangKy}" (${ticket.tenSuKien} - Hạng ${ticket.tenHangVe}) thành công.`,
+          ticket: {
+            id: ticket.id,
+            maDangKy: ticket.maDangKy,
+            tenSuKien: ticket.tenSuKien,
+            trangThai: 'Huy',
+            lyDo: reason
+          }
+        });
+      }
+    );
   });
 };
 

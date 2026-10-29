@@ -16,7 +16,11 @@ const { authMiddleware } = require('../middleware/auth');
 const {
   getDashboardSummary,
   listSessions,
+  checkSessionConflict,
   createSession,
+  getSessionSpeakers,
+  assignSpeakerToSession,
+  removeSpeakerFromSession,
   listSpeakers,
   createSpeaker,
   listTickets,
@@ -30,6 +34,7 @@ const {
   createReport,
   getFinancialOverview,
   getMyTickets,
+  cancelTicket,
   createFeedback,
   listFeedbacks
 } = require('../controllers/managementController');
@@ -60,8 +65,12 @@ router.put('/api/events/:id', authMiddleware(['QuanTriVien', 'BanToChuc']), upda
 router.delete('/api/events/:id', authMiddleware(['QuanTriVien', 'BanToChuc']), deleteEvent);
 
 // Sessions & Speakers
+router.get('/api/sessions/check-conflict', checkSessionConflict);
 router.get('/api/sessions', listSessions);
 router.post('/api/sessions', authMiddleware(['QuanTriVien', 'BanToChuc']), createSession);
+router.get('/api/sessions/:id/speakers', getSessionSpeakers);
+router.post('/api/sessions/:id/speakers', authMiddleware(['QuanTriVien', 'BanToChuc']), assignSpeakerToSession);
+router.delete('/api/sessions/:id/speakers/:dienGiaId', authMiddleware(['QuanTriVien', 'BanToChuc']), removeSpeakerFromSession);
 router.get('/api/speakers', listSpeakers);
 router.post('/api/speakers', authMiddleware(['QuanTriVien', 'BanToChuc']), createSpeaker);
 
@@ -83,6 +92,9 @@ router.get('/api/financial/overview', authMiddleware(['QuanTriVien', 'KeToan']),
 
 // Attendee & Public
 router.get('/api/my-tickets', getMyTickets);
+router.patch('/api/my-tickets/:id/cancel', cancelTicket);
+router.post('/api/my-tickets/:id/cancel', cancelTicket);
+router.patch('/api/registrations/:id/cancel', cancelTicket);
 router.post('/api/feedback', createFeedback);
 router.get('/api/feedback', listFeedbacks);
 

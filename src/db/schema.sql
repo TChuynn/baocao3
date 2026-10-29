@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS TaiKhoan (
     vaiTro TEXT NOT NULL CHECK(vaiTro IN ('QuanTriVien', 'BanToChuc', 'NhanVienCheckIn', 'NguoiThamDu', 'KeToan')),
     hoTen TEXT NOT NULL,
     trangThai TEXT NOT NULL DEFAULT 'HoatDong' CHECK(trangThai IN ('HoatDong', 'Khoa', 'ChoXacNhan')),
+    soLanDangNhapSai INTEGER DEFAULT 0,
+    khoaTamDen TEXT DEFAULT NULL,
     createdAt TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -29,6 +31,7 @@ CREATE TABLE IF NOT EXISTS PhienNoiDung (
     tenPhien TEXT NOT NULL,
     moTa TEXT,
     ngayGio TEXT NOT NULL,
+    thoiLuong INTEGER DEFAULT 60,
     diaDiem TEXT,
     suKienId INTEGER NOT NULL,
     phong TEXT,

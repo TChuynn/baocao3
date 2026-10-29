@@ -23,9 +23,11 @@ exports.login = (req, res) => {
     return res.status(400).json({ message: 'Thiếu thông tin đăng nhập' });
   }
 
+  const cleanAccount = String(tenDangNhap).trim();
+
   db.get(
     'SELECT * FROM TaiKhoan WHERE tenDangNhap = ? OR email = ?',
-    [tenDangNhap, tenDangNhap],
+    [cleanAccount, cleanAccount],
     async (err, user) => {
       if (err) {
         return res.status(500).json({ message: 'Database error' });
@@ -34,13 +36,87 @@ exports.login = (req, res) => {
         return res.status(401).json({ message: 'Tài khoản không tồn tại' });
       }
 
-      const valid = await bcrypt.compare(matKhau, user.matKhauHash);
-      if (!valid) {
-        return res.status(401).json({ message: 'Mật khẩu không đúng' });
+      // 1. Kiểm tra nếu tài khoản bị khóa vĩnh viễn bởi Quản trị viên
+      if (user.trangThai === 'Khoa') {
+        return res.status(403).json({ message: 'Tài khoản đã bị khóa bởi Quản trị viên' });
       }
 
-      if (user.trangThai === 'Khoa') {
-        return res.status(403).json({ message: 'Tài khoản đã bị khóa' });
+      // 2. Kiểm tra nếu tài khoản đang trong thời gian bị khóa tạm 3 phút
+      const now = new Date();
+      let previousLockExpired = false;
+
+      if (user.khoaTamDen) {
+        const lockUntil = new Date(user.khoaTamDen);
+        if (lockUntil > now) {
+          const diffMs = lockUntil.getTime() - now.getTime();
+          const remainingSec = Math.max(1, Math.ceil(diffMs / 1000));
+          const minutes = Math.floor(remainingSec / 60);
+          const seconds = remainingSec % 60;
+          const timeStr = minutes > 0 
+            ? `${minutes} phút${seconds > 0 ? ` ${seconds} giây` : ''}` 
+            : `${seconds} giây`;
+
+          return res.status(429).json({
+            message: `Tài khoản đang bị tạm khóa do nhập sai mật khẩu quá 5 lần liên tiếp. Vui lòng thử lại sau ${timeStr}.`,
+            khoaTamDen: user.khoaTamDen,
+            conLaiGiay: remainingSec,
+            isLocked: true
+          });
+        } else {
+          // Khóa tạm 3 phút trước đó đã kết thúc
+          previousLockExpired = true;
+        }
+      }
+
+      // 3. Kiểm tra tính hợp lệ của mật khẩu
+      const valid = await bcrypt.compare(matKhau, user.matKhauHash);
+      if (!valid) {
+        // Nếu đã từng bị tạm khóa nhưng thời gian khóa đã hết thì bắt đầu đếm chu kỳ 5 lần mới từ 1
+        const currentFailures = previousLockExpired ? 1 : ((user.soLanDangNhapSai || 0) + 1);
+
+        if (currentFailures >= 5) {
+          // Đăng nhập sai quá 5 lần liên tiếp -> Khóa tạm 3 phút
+          const lockDurationMs = 3 * 60 * 1000; // 3 phút
+          const lockUntil = new Date(Date.now() + lockDurationMs).toISOString();
+
+          db.run(
+            'UPDATE TaiKhoan SET soLanDangNhapSai = ?, khoaTamDen = ? WHERE id = ?',
+            [currentFailures, lockUntil, user.id],
+            (updateErr) => {
+              if (updateErr) console.error('Lỗi cập nhật khóa tạm tài khoản:', updateErr);
+            }
+          );
+
+          return res.status(429).json({
+            message: 'Bạn đã nhập sai mật khẩu 5 lần liên tiếp. Tài khoản đã bị tạm khóa trong 3 phút.',
+            khoaTamDen: lockUntil,
+            conLaiGiay: 180,
+            isLocked: true
+          });
+        } else {
+          // Chưa đủ 5 lần sai -> Cập nhật số lần sai và cảnh báo số lần thử còn lại
+          const remainingAttempts = 5 - currentFailures;
+          db.run(
+            'UPDATE TaiKhoan SET soLanDangNhapSai = ?, khoaTamDen = NULL WHERE id = ?',
+            [currentFailures, user.id],
+            (updateErr) => {
+              if (updateErr) console.error('Lỗi cập nhật số lần sai:', updateErr);
+            }
+          );
+
+          return res.status(401).json({
+            message: `Mật khẩu không đúng. Bạn còn ${remainingAttempts} lần thử trước khi tài khoản bị tạm khóa 3 phút.`,
+            soLanDangNhapSai: currentFailures,
+            soLanConLai: remainingAttempts
+          });
+        }
+      }
+
+      // 4. Đăng nhập thành công -> Reset số lần đăng nhập sai và thời gian khóa tạm
+      if (user.soLanDangNhapSai > 0 || user.khoaTamDen) {
+        db.run('UPDATE TaiKhoan SET soLanDangNhapSai = 0, khoaTamDen = NULL WHERE id = ?', [user.id], (resErr) => {
+          if (resErr) console.error('Lỗi reset số lần đăng nhập sai:', resErr);
+        });
       }
 
       const token = generateToken(user);
@@ -109,7 +185,7 @@ exports.getProfile = (req, res) => {
 
 exports.listAccounts = (req, res) => {
   db.all(
-    `SELECT id, tenDangNhap, email, hoTen, vaiTro, trangThai, createdAt
+    `SELECT id, tenDangNhap, email, hoTen, vaiTro, trangThai, soLanDangNhapSai, khoaTamDen, createdAt
      FROM TaiKhoan
      ORDER BY createdAt DESC`,
     [],
@@ -214,11 +290,11 @@ exports.updateAccount = async (req, res) => {
         let sql, params;
         if (matKhau && matKhau.trim()) {
           const matKhauHash = await bcrypt.hash(matKhau.trim(), 10);
-          sql = `UPDATE TaiKhoan SET tenDangNhap = ?, email = ?, hoTen = ?, vaiTro = ?, trangThai = ?, matKhauHash = ? WHERE id = ?`;
+          sql = `UPDATE TaiKhoan SET tenDangNhap = ?, email = ?, hoTen = ?, vaiTro = ?, trangThai = ?, matKhauHash = ?, soLanDangNhapSai = 0, khoaTamDen = NULL WHERE id = ?`;
           params = [cleanUsername, cleanEmail, cleanName, vaiTro, newStatus, matKhauHash, id];
         } else {
-          sql = `UPDATE TaiKhoan SET tenDangNhap = ?, email = ?, hoTen = ?, vaiTro = ?, trangThai = ? WHERE id = ?`;
-          params = [cleanUsername, cleanEmail, cleanName, vaiTro, newStatus, id];
+          sql = `UPDATE TaiKhoan SET tenDangNhap = ?, email = ?, hoTen = ?, vaiTro = ?, trangThai = ?, soLanDangNhapSai = CASE WHEN ? = 'HoatDong' THEN 0 ELSE soLanDangNhapSai END, khoaTamDen = CASE WHEN ? = 'HoatDong' THEN NULL ELSE khoaTamDen END WHERE id = ?`;
+          params = [cleanUsername, cleanEmail, cleanName, vaiTro, newStatus, newStatus, newStatus, id];
         }
 
         db.run(sql, params, function (updateErr) {
@@ -266,13 +342,14 @@ exports.toggleLockAccount = (req, res) => {
     return res.status(400).json({ message: 'Không thể tự khóa tài khoản quản trị của chính bạn' });
   }
 
-  db.get(`SELECT id, tenDangNhap, hoTen, trangThai FROM TaiKhoan WHERE id = ?`, [id], (err, user) => {
+  db.get(`SELECT id, tenDangNhap, hoTen, trangThai, khoaTamDen FROM TaiKhoan WHERE id = ?`, [id], (err, user) => {
     if (err) return res.status(500).json({ message: 'Lỗi cơ sở dữ liệu' });
     if (!user) return res.status(404).json({ message: 'Không tìm thấy tài khoản' });
 
-    const newStatus = user.trangThai === 'Khoa' ? 'HoatDong' : 'Khoa';
+    const isTempLocked = user.khoaTamDen && new Date(user.khoaTamDen) > new Date();
+    const newStatus = (user.trangThai === 'Khoa' || isTempLocked) ? 'HoatDong' : 'Khoa';
     db.run(
-      `UPDATE TaiKhoan SET trangThai = ? WHERE id = ?`,
+      `UPDATE TaiKhoan SET trangThai = ?, soLanDangNhapSai = 0, khoaTamDen = NULL WHERE id = ?`,
       [newStatus, id],
       function (updateErr) {
         if (updateErr) return res.status(500).json({ message: 'Không thể thay đổi trạng thái tài khoản' });

@@ -1,14 +1,61 @@
 const db = require('../config/db');
 
 exports.listEvents = (req, res) => {
-  db.all(
-    `SELECT * FROM SuKien ORDER BY ngayBatDau DESC`,
-    [],
-    (err, rows) => {
-      if (err) return res.status(500).json({ message: 'Database error' });
-      return res.json(rows);
-    }
-  );
+  const { q, search, tuKhoa, trangThai, status, loaiSuKien, category } = req.query;
+  const keyword = (q || search || tuKhoa || '').trim();
+  const filterStatus = (trangThai || status || '').trim();
+  const filterCategory = (loaiSuKien || category || '').trim();
+
+  const whereConditions = [];
+  const params = [];
+
+  if (keyword) {
+    whereConditions.push(`(
+      s.tenSuKien LIKE ? OR 
+      s.moTa LIKE ? OR 
+      s.diaDiem LIKE ? OR 
+      s.loaiSuKien LIKE ? OR 
+      s.maSuKien LIKE ?
+    )`);
+    const kwPattern = `%${keyword}%`;
+    params.push(kwPattern, kwPattern, kwPattern, kwPattern, kwPattern);
+  }
+
+  if (filterStatus && filterStatus !== 'all') {
+    whereConditions.push(`s.trangThai = ?`);
+    params.push(filterStatus);
+  }
+
+  if (filterCategory && filterCategory !== 'all') {
+    whereConditions.push(`s.loaiSuKien = ?`);
+    params.push(filterCategory);
+  }
+
+  const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+  const sql = `
+    SELECT s.*,
+           COALESCE(SUM(h.soLuong), 0) AS tongSoVe,
+           COALESCE(SUM(booked.daBan), 0) AS soVeDaBan,
+           MAX(0, COALESCE(SUM(h.soLuong), 0) - COALESCE(SUM(booked.daBan), 0)) AS soVeConLai,
+           MIN(h.gia) AS giaVeTu
+    FROM SuKien s
+    LEFT JOIN HangVe h ON h.suKienId = s.id
+    LEFT JOIN (
+      SELECT hangVeId, SUM(soLuong) AS daBan
+      FROM DangKy
+      WHERE trangThai != 'Huy'
+      GROUP BY hangVeId
+    ) booked ON booked.hangVeId = h.id
+    ${whereClause}
+    GROUP BY s.id
+    ORDER BY s.ngayBatDau DESC
+  `;
+
+  db.all(sql, params, (err, rows) => {
+    if (err) return res.status(500).json({ message: 'Database error', error: err.message });
+    return res.json(rows);
+  });
 };
 
 exports.getEventById = (req, res) => {
@@ -19,8 +66,67 @@ exports.getEventById = (req, res) => {
     if (!event) return res.status(404).json({ message: 'Không tìm thấy sự kiện' });
 
     db.all(`SELECT * FROM PhienNoiDung WHERE suKienId = ? ORDER BY ngayGio ASC`, [id], (sessionErr, sessions) => {
-      db.all(`SELECT * FROM HangVe WHERE suKienId = ? ORDER BY gia ASC`, [id], (ticketErr, tickets) => {
-        return res.json({ event, sessions, tickets });
+      const sessionList = sessions || [];
+      const finishWithTickets = (enhancedSessions) => {
+        const ticketSql = `
+          SELECT h.*,
+                 COALESCE(booked.daBan, 0) AS daBan,
+                 MAX(0, h.soLuong - COALESCE(booked.daBan, 0)) AS conLai,
+                 CASE 
+                   WHEN MAX(0, h.soLuong - COALESCE(booked.daBan, 0)) <= 0 THEN 'HetVe'
+                   WHEN h.trangThai = 'TaiCho' THEN 'TaiCho'
+                   ELSE 'ConVe'
+                 END AS tinhTrangVe
+          FROM HangVe h
+          LEFT JOIN (
+            SELECT hangVeId, SUM(soLuong) as daBan
+            FROM DangKy
+            WHERE trangThai != 'Huy'
+            GROUP BY hangVeId
+          ) booked ON booked.hangVeId = h.id
+          WHERE h.suKienId = ?
+          ORDER BY h.gia ASC
+        `;
+
+        db.all(ticketSql, [id], (ticketErr, tickets) => {
+          return res.json({ event, sessions: enhancedSessions, tickets });
+        });
+      };
+
+      if (sessionList.length === 0) {
+        return finishWithTickets([]);
+      }
+
+      const sessionIds = sessionList.map(s => s.id);
+      const placeholders = sessionIds.map(() => '?').join(',');
+      const speakerSql = `
+        SELECT pd.phienNoiDungId, d.id, d.maDienGia, d.tenDienGia, d.chuyenNganh, d.avatarUrl
+        FROM PhienNoiDung_DienGia pd
+        JOIN DienGia d ON d.id = pd.dienGiaId
+        WHERE pd.phienNoiDungId IN (${placeholders})
+        ORDER BY d.tenDienGia ASC
+      `;
+
+      db.all(speakerSql, sessionIds, (spkErr, speakerRows) => {
+        const speakersBySession = {};
+        (speakerRows || []).forEach(row => {
+          if (!speakersBySession[row.phienNoiDungId]) {
+            speakersBySession[row.phienNoiDungId] = [];
+          }
+          speakersBySession[row.phienNoiDungId].push({
+            id: row.id,
+            maDienGia: row.maDienGia,
+            tenDienGia: row.tenDienGia,
+            chuyenNganh: row.chuyenNganh,
+            avatarUrl: row.avatarUrl
+          });
+        });
+
+        const enhanced = sessionList.map(s => ({
+          ...s,
+          dienGia: speakersBySession[s.id] || []
+        }));
+        finishWithTickets(enhanced);
       });
     });
   });
